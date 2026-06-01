@@ -130,6 +130,8 @@
 #include "features/DirtyLogging.h"
 #include "features/CompatibilityChecks.h"
 #include "mmio/MmioShadowing.h"
+#include "vmm/vmx/VmxEmulation.h"
+#include "interface/HyperEvade.h"
 
 //
 // Disassembler Header

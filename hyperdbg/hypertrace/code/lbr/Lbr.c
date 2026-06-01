@@ -99,6 +99,8 @@ LbrCheckAndReadArchitecturalLbrDetails()
     //
     xcpuidex(CPUID_STRUCTURED_EXTENDED_FEATURE_FLAGS, 0x00, &a, &b, &c, &d);
 
+    LogDebugInfo("EDX07 value: 0x%08X\n", d);
+
     Edx07.Edx.AsUInt = d;
 
     //
@@ -115,7 +117,7 @@ LbrCheckAndReadArchitecturalLbrDetails()
         //
         g_ArchBasedLastBranchRecord = FALSE;
 
-        return FALSE;
+        // return FALSE;
     }
 
     //
@@ -144,6 +146,7 @@ LbrCheckAndReadArchitecturalLbrDetails()
     //
     if (Eax1c.LbrDepthMask)
     {
+        LogDebugInfo("Yes depth mask\n");
         //
         // Get the highest set bit in LbrDepthMask to determine the maximum supported LBR depth
         //
@@ -159,6 +162,7 @@ LbrCheckAndReadArchitecturalLbrDetails()
     }
     else
     {
+        LogDebugInfo("No depth mask\n");
         //
         // If LbrDepthMask is 0, it means the CPU supports architectural LBR but does not specify the depth, we can assume a default value (e.g., 16 or 32) or treat it as unsupported
         //

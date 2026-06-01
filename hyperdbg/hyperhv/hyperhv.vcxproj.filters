@@ -338,6 +338,9 @@
     <ClCompile Include="..\include\platform\kernel\code\PlatformBroadcast.c">
       <Filter>code\platform</Filter>
     </ClCompile>
+    <ClCompile Include="code\vmm\vmx\VmxEmulation.c">
+      <Filter>code\vmm\vmx</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -622,6 +625,12 @@
     <ClInclude Include="..\include\platform\kernel\header\PlatformBroadcast.h">
       <Filter>header\platform</Filter>
     </ClInclude>
+    <ClInclude Include="header\vmm\vmx\VmxEmulation.h">
+      <Filter>header\vmm\vmx</Filter>
+    </ClInclude>
+    <ClInclude Include="header\interface\HyperEvade.h">
+      <Filter>header\interface</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <MASM Include="code\assembly\AsmCommon.asm">
@@ -646,6 +655,9 @@
       <Filter>code\assembly</Filter>
     </MASM>
     <MASM Include="code\assembly\AsmInterruptHandlers.asm">
+      <Filter>code\assembly</Filter>
+    </MASM>
+    <MASM Include="code\assembly\AsmGetsec.asm">
       <Filter>code\assembly</Filter>
     </MASM>
   </ItemGroup>

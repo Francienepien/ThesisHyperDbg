@@ -118,6 +118,12 @@ IoOutDwordString(UINT16 port, UINT32 * data, UINT32 count)
 VOID
 IoHandleIoVmExits(VIRTUAL_MACHINE_STATE * VCpu, VMX_EXIT_QUALIFICATION_IO_INSTRUCTION IoQualification, RFLAGS Flags);
 
+BOOLEAN
+IoHandleSetIoBitmap(VIRTUAL_MACHINE_STATE * VCpu, UINT32 Port);
+
+BOOLEAN
+IoHandleUnSetIoBitmap(VIRTUAL_MACHINE_STATE * VCpu, UINT32 Port);
+
 VOID
 IoHandlePerformIoBitmapChange(VIRTUAL_MACHINE_STATE * VCpu, UINT32 Port);
 

@@ -63,6 +63,16 @@ TransparentHideDebugger(HYPEREVADE_CALLBACKS *                        Hyperevade
 #endif
 
         //
+        // Set a random SMI count, somewhat arbitrarily
+        //
+        g_TransparentSmiCount = (TransparentGetRand() % 500) + 0x1444;
+
+        //
+        // Store LBR info
+        //
+        g_IsLbrSupported = g_Callbacks.HyperTraceLbrIsSupported(&g_LbrCapacity, &g_isArchLbr);
+
+        //
         // Enable the transparent mode
         //
         g_TransparentMode                    = TRUE;

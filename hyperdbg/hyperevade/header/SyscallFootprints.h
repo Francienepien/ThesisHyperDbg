@@ -153,6 +153,12 @@ NTSTATUS(*NtCreateFileOrig)
 static WORD TRANSPARENT_GENUINE_VENDOR_STRING_INDEX = 0;
 
 /**
+ * @brief A variable holding the randomly chosen SMI count.
+ *        This is used for SMI query spoofing.
+ */
+UINT32 g_TransparentSmiCount;
+
+/**
  * @brief System call numbers information
  */
 SYSTEM_CALL_NUMBERS_INFORMATION g_SystemCallNumbersInformation;

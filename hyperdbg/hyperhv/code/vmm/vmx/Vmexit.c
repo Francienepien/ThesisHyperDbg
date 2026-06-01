@@ -95,38 +95,120 @@ VmxVmexitHandler(_Inout_ PGUEST_REGS GuestRegs)
         //
 
     case VMX_EXIT_REASON_EXECUTE_VMCLEAR:
+    {
+        //
+        // Emulate Vmclear behaviour
+        //
+        VmxEmulationVmclear(VCpu);
+
+        break;
+    }
     case VMX_EXIT_REASON_EXECUTE_VMPTRLD:
+    {
+        //
+        // Emulate Vmptrld behaviour
+        //
+        VmxEmulationVmptrld(VCpu);
+
+        break;
+    }
     case VMX_EXIT_REASON_EXECUTE_VMPTRST:
+    {
+        //
+        // Emulate Vmptrst behaviour
+        //
+        VmxEmulationVmptrst(VCpu);
+
+        break;
+    }
     case VMX_EXIT_REASON_EXECUTE_VMREAD:
+    {
+        //
+        // Emulate Vmread behaviour
+        //
+        VmxEmulationVmread(VCpu);
+
+        break;
+    }
     case VMX_EXIT_REASON_EXECUTE_VMRESUME:
+    {
+        //
+        // Emulate Vmresume behaviour
+        //
+        VmxEmulationVmresume(VCpu);
+
+        break;
+    }
     case VMX_EXIT_REASON_EXECUTE_VMWRITE:
+    {
+        //
+        // Emulate Vmwrite behaviour
+        //
+        VmxEmulationVmwrite(VCpu);
+
+        break;
+    }
     case VMX_EXIT_REASON_EXECUTE_VMXOFF:
-    case VMX_EXIT_REASON_EXECUTE_VMXON:
+    {
+        //
+        // Emulate Vmxoff behaviour
+        //
+        VmxEmulationVmxoff(VCpu);
+
+        break;
+    }
     case VMX_EXIT_REASON_EXECUTE_VMLAUNCH:
     {
         //
-        // cf=1 indicate vm instructions fail
+        // Emulate Vmlaunch behaviour
         //
-        // UINT64 Rflags = 0;
-        // VmxVmread64P(VMCS_GUEST_RFLAGS, &Rflags);
-        // VmxVmwrite64(VMCS_GUEST_RFLAGS, Rflags | 0x1);
+        VmxEmulationVmlaunch(VCpu);
 
+        break;
+    }
+    case VMX_EXIT_REASON_EXECUTE_VMXON:
+    {
         //
-        // Handle unconditional vm-exits (inject #ud)
+        // Emulate Vmxon behaviour
         //
-        EventInjectUndefinedOpcode(VCpu);
+        VmxEmulationVmxon(VCpu);
 
         break;
     }
     case VMX_EXIT_REASON_EXECUTE_INVEPT:
+    {
+        //
+        // Handle vm-exit, emulate INVEPT leaf behaviour
+        //
+        VmxEmulationInvept(VCpu);
+
+        break;
+    }
     case VMX_EXIT_REASON_EXECUTE_INVVPID:
-    case VMX_EXIT_REASON_EXECUTE_GETSEC:
+    {
+        //
+        // Handle vm-exit, emulate INVVPID leaf behaviour
+        //
+        VmxEmulationInvvpid(VCpu);
+
+        break;
+    }
     case VMX_EXIT_REASON_EXECUTE_INVD:
     {
         //
-        // Handle unconditional vm-exits (inject #ud)
+        // SDM 39.6.5, BIOS sets memory protections at boot, which disallows INVD execution.
+        // And I dont think the guest has its own caches.
         //
-        EventInjectUndefinedOpcode(VCpu);
+        EventInjectGeneralProtection();
+
+        break;
+    }
+    case VMX_EXIT_REASON_EXECUTE_GETSEC:
+    {
+        //
+        // Handle vm-exit, emulate GETSEC leaf behaviour
+        //
+        VmxEmulationGetsec(VCpu);
 
         break;
     }

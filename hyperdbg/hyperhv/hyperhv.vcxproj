@@ -189,11 +189,13 @@
     <ClCompile Include="code\vmm\vmx\Vmexit.c" />
     <ClCompile Include="code\vmm\vmx\Vmx.c" />
     <ClCompile Include="code\vmm\vmx\VmxBroadcast.c" />
+    <ClCompile Include="code\vmm\vmx\VmxEmulation.c" />
     <ClCompile Include="code\vmm\vmx\VmxMechanisms.c" />
     <ClCompile Include="code\vmm\vmx\VmxRegions.c" />
   </ItemGroup>
   <ItemGroup>
     <MASM Include="code\assembly\AsmCommon.asm" />
+    <MASM Include="code\assembly\AsmGetsec.asm" />
     <MASM Include="code\assembly\AsmHooks.asm" />
     <MASM Include="code\assembly\AsmEpt.asm" />
     <MASM Include="code\assembly\AsmSegmentRegs.asm" />
@@ -268,6 +270,7 @@
     <ClInclude Include="header\interface\Callback.h" />
     <ClInclude Include="header\interface\DirectVmcall.h" />
     <ClInclude Include="header\interface\Dispatch.h" />
+    <ClInclude Include="header\interface\HyperEvade.h" />
     <ClInclude Include="header\memory\AddressCheck.h" />
     <ClInclude Include="header\memory\Conversion.h" />
     <ClInclude Include="header\memory\Layout.h" />
@@ -294,6 +297,7 @@
     <ClInclude Include="header\vmm\vmx\Vmcall.h" />
     <ClInclude Include="header\vmm\vmx\Vmx.h" />
     <ClInclude Include="header\vmm\vmx\VmxBroadcast.h" />
+    <ClInclude Include="header\vmm\vmx\VmxEmulation.h" />
     <ClInclude Include="header\vmm\vmx\VmxMechanisms.h" />
     <ClInclude Include="header\vmm\vmx\VmxRegions.h" />
     <ClInclude Include="pch.h" />

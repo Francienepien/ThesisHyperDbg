@@ -81,6 +81,16 @@ TransparentHideDebuggerWrapper(DEBUGGER_HIDE_AND_TRANSPARENT_DEBUGGER_MODE * Tra
     if (TransparentHideDebugger(&HyperevadeCallbacks, TransparentModeRequest))
     {
         //
+        // Set MSR bitmaps used in transparent mode.
+        //
+        TransparentSetMSRBitmap();
+
+        //
+        // Set I/O bitmap used in transparent mode
+        //
+        TransparentSetIOBitmap();
+
+        //
         // Status is set within the transparent mode (hyperevade) module
         //
         g_CheckForFootprints = TRUE;
@@ -113,6 +123,16 @@ TransparentUnhideDebuggerWrapper(DEBUGGER_HIDE_AND_TRANSPARENT_DEBUGGER_MODE * T
     if (TransparentUnhideDebugger())
     {
         //
+        // Unset MSR bitmaps used in transparent mode.
+        //
+        TransparentUnSetMSRBitmap();
+
+        //
+        // Unset I/O bitmap used in transparent mode
+        //
+        TransparentUnSetIOBitmap();
+
+        //
         // Unset transparent mode for the VMM module
         //
         g_CheckForFootprints = FALSE;
@@ -131,5 +151,113 @@ TransparentUnhideDebuggerWrapper(DEBUGGER_HIDE_AND_TRANSPARENT_DEBUGGER_MODE * T
             TransparentModeRequest->KernelStatus = DEBUGGER_ERROR_DEBUGGER_ALREADY_UNHIDE;
         }
         return FALSE;
+    }
+}
+
+/**
+ * @brief Update the MSR bitmap when enabling transparent mode
+ *
+ * @return VOID
+ */
+VOID
+TransparentSetMSRBitmap()
+{
+    ULONG ProcessorCount;
+
+    ProcessorCount = KeQueryActiveProcessorCount(0);
+
+    //
+    // Enable bitmaps to intercept MSR reads/writes related to LBR and SMI count as they can be used for VM detection
+    // Only intercept writes to save on performance.
+    //
+    for (size_t ProcessorID = 0; ProcessorID < ProcessorCount; ProcessorID++)
+    {
+        MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], MSR_SMI_COUNT, TRUE, FALSE);
+        MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], MSR_LEGACY_LBR_SELECT, FALSE, TRUE);
+        MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], MSR_LBR_TOS, FALSE, TRUE);
+        MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], IA32_LBR_CTL, FALSE, TRUE);
+        MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], IA32_DEBUGCTL, FALSE, TRUE);
+
+        for (size_t BranchIndex = 0; BranchIndex < MAXIMUM_LBR_CAPACITY; BranchIndex++)
+        {
+            MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(MSR_LASTBRANCH_0_FROM_IP + BranchIndex), FALSE, TRUE);
+            MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(MSR_LASTBRANCH_0_TO_IP + BranchIndex), FALSE, TRUE);
+            MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(MSR_LASTBRANCH_INFO_0 + BranchIndex), FALSE, TRUE);
+            MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(IA32_LBR_0_FROM_IP + BranchIndex), FALSE, TRUE);
+            MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(IA32_LBR_0_TO_IP + BranchIndex), FALSE, TRUE);
+            MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(IA32_LBR_0_INFO + BranchIndex), FALSE, TRUE);
+        }
+    }
+}
+
+/**
+ * @brief Update the MSR bitmap when disabling transparent mode
+ *
+ * @return VOID
+ */
+VOID
+TransparentUnSetMSRBitmap()
+{
+    ULONG   ProcessorCount;
+
+    ProcessorCount = KeQueryActiveProcessorCount(0);
+    
+    //
+    // Enable bitmaps to intercept MSR reads/writes related to LBR and SMI count as they can be used for VM detection
+    // LBR MSRs support r/w access, so we should intercept both. SMI count is read-only.
+    //
+    for (size_t ProcessorID = 0; ProcessorID < ProcessorCount; ProcessorID++)
+    {
+        MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], MSR_SMI_COUNT, TRUE, FALSE);
+        MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], MSR_LEGACY_LBR_SELECT, FALSE, TRUE);
+        MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], MSR_LBR_TOS, FALSE, TRUE);
+        MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], IA32_LBR_CTL, FALSE, TRUE);
+        MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], IA32_DEBUGCTL, FALSE, TRUE);
+
+        for (size_t BranchIndex = 0; BranchIndex < MAXIMUM_LBR_CAPACITY; BranchIndex++)
+        {
+            MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(MSR_LASTBRANCH_0_FROM_IP + BranchIndex), FALSE, TRUE);
+            MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(MSR_LASTBRANCH_0_TO_IP + BranchIndex), FALSE, TRUE);
+            MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(MSR_LASTBRANCH_INFO_0 + BranchIndex), FALSE, TRUE);
+            MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(IA32_LBR_0_FROM_IP + BranchIndex), FALSE, TRUE);
+            MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(IA32_LBR_0_TO_IP + BranchIndex), FALSE, TRUE);
+            MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(IA32_LBR_0_INFO + BranchIndex), FALSE, TRUE);
+        }
+    }
+}
+
+/**
+ * @brief Update the I/O bitmap when enabling transparent mode
+ *
+ * @return VOID
+ */
+VOID
+TransparentSetIOBitmap()
+{
+    ULONG   ProcessorCount;
+
+    ProcessorCount = KeQueryActiveProcessorCount(0);
+
+    for (size_t ProcessorID = 0; ProcessorID < ProcessorCount; ProcessorID++)
+    {
+        IoHandleSetIoBitmap(&g_GuestState[ProcessorID], 0xb2);
+    }
+}
+
+/**
+ * @brief Update the I/O bitmap when Disabling transparent mode
+ *
+ * @return VOID
+ */
+VOID
+TransparentUnSetIOBitmap()
+{
+    ULONG ProcessorCount;
+
+    ProcessorCount = KeQueryActiveProcessorCount(0);
+
+    for (size_t ProcessorID = 0; ProcessorID < ProcessorCount; ProcessorID++)
+    {
+        IoHandleUnSetIoBitmap(&g_GuestState[ProcessorID], 0xb2);
     }
 }

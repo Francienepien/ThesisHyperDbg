@@ -75,8 +75,18 @@ TransparentCheckAndModifyMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
     //     return FALSE;
     // }
 
-    UNREFERENCED_PARAMETER(Regs);
-    UNREFERENCED_PARAMETER(TargetMsr);
+    switch (TargetMsr)
+    {
+    case MSR_SMI_COUNT:
+    {
+        //
+        // Spoof SMI value to hide hypervisor
+        //
+        SaveMsrValueToRegisters(Regs, g_TransparentSmiCount);
+
+        return TRUE;
+    }
+    }
 
     return FALSE;
 }
@@ -116,9 +126,104 @@ TransparentCheckAndModifyMsrWrite(PGUEST_REGS Regs, UINT32 TargetMsr)
     //     return FALSE;
     // }
 
-    UNREFERENCED_PARAMETER(Regs);
-    UNREFERENCED_PARAMETER(TargetMsr);
+    UINT64            MsrValue;
+    UINT64            DebugCtlValue;
 
+    MsrValue = GetMsrValueFromRegisters(Regs);
+
+    switch (TargetMsr)
+    {
+    case IA32_DEBUGCTL:
+    {
+        //
+        // Only allow setting bit 0
+        //
+        if (MsrValue & 1)
+        {
+            DebugCtlValue = CpuReadMsr(IA32_DEBUGCTL);
+            CpuWriteMsr(IA32_DEBUGCTL, DebugCtlValue |= 1);
+        }
+        else
+        {
+            DebugCtlValue = CpuReadMsr(IA32_DEBUGCTL);
+            CpuWriteMsr(IA32_DEBUGCTL, DebugCtlValue & ~1);
+        }
+
+        return TRUE;
+    }
+    case MSR_LEGACY_LBR_SELECT:
+    {
+        //
+        // Guest tries to set illegal filter
+        //
+        if ((MsrValue & UPPER_56_BITS) != 0)
+        {
+            g_Callbacks.EventInjectGeneralProtection();
+            return TRUE;
+        }
+
+        CpuWriteMsr(TargetMsr, MsrValue);
+    }
+    case MSR_LBR_TOS:
+    case IA32_LBR_CTL:
+    {
+        CpuWriteMsr(TargetMsr, MsrValue);
+
+        return TRUE;
+    }
+    }
+
+    if (!g_IsLbrSupported)
+    {
+        return FALSE;
+    }
+
+    if (g_isArchLbr)
+    {
+        if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_FROM_IP, MAXIMUM_LBR_CAPACITY) ||
+            IN_MSR_RANGE(TargetMsr, IA32_LBR_0_TO_IP, MAXIMUM_LBR_CAPACITY) ||
+            IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, MAXIMUM_LBR_CAPACITY))
+        {
+            if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_FROM_IP, g_LbrCapacity) ||
+                IN_MSR_RANGE(TargetMsr, IA32_LBR_0_TO_IP, g_LbrCapacity) ||
+                IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, g_LbrCapacity))
+            {
+                CpuWriteMsr(TargetMsr, MsrValue);
+
+                return TRUE;
+            }
+
+            //
+            // Trying to access LBR stack past supported range.
+            //
+            g_Callbacks.EventInjectGeneralProtection();
+            return TRUE;
+        }
+    }
+
+    //
+    // Check whether TargetMSR is part of legacy LBR range.
+    //
+    if (IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_FROM_IP, MAXIMUM_LBR_CAPACITY) ||
+        IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_TO_IP, MAXIMUM_LBR_CAPACITY) ||
+        IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_INFO_0, MAXIMUM_LBR_CAPACITY))
+    {
+        if (IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_FROM_IP, g_LbrCapacity) ||
+            IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_TO_IP, g_LbrCapacity) ||
+            IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_INFO_0, g_LbrCapacity))
+        {
+            CpuWriteMsr(TargetMsr, MsrValue);
+
+            return TRUE;
+        }
+
+        //
+        // Trying to access LBR stack past supported range.
+        //
+        g_Callbacks.EventInjectGeneralProtection();
+        return TRUE;
+    }
+    
     return FALSE;
 }
 
@@ -135,4 +240,46 @@ TransparentCheckAndTrapFlagAfterVmexit()
     // we need to handle the trap flag if it is set in a guest
     //
     g_Callbacks.HvHandleTrapFlag();
+}
+
+BOOLEAN
+TransparentCheckAndModifyIO(UINT16 Port)
+{
+    switch(Port) 
+    {
+        case 0x2B :
+        {
+            //
+            // Guest attempts to trigger an SMI
+            // Emulate success by incrementing the spoofed SMI count
+            //
+            g_TransparentSmiCount++;
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
+/**
+ * @brief Save MSR value into relevant return registers
+ *
+ * @return VOID
+ */
+VOID
+SaveMsrValueToRegisters(PGUEST_REGS Regs, UINT64 MsrValue)
+{
+    Regs->rax = (UINT32)(MsrValue & 0xffffffff);
+    Regs->rdx = (UINT32)(MsrValue >> 32);
+}
+
+/**
+ * @brief Compile WRMSR operand from registers
+ *
+ * @return UINT64
+ */
+UINT64
+GetMsrValueFromRegisters(PGUEST_REGS Regs) 
+{
+    return ((UINT64)Regs->rdx << 32) | Regs->rax;
 }

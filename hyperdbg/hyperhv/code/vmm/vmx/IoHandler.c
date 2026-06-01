@@ -95,6 +95,11 @@ IoHandleIoVmExits(VIRTUAL_MACHINE_STATE * VCpu, VMX_EXIT_QUALIFICATION_IO_INSTRU
     switch (IoQualification.DirectionOfAccess)
     {
     case AccessIn:
+        if (g_CheckForFootprints && TransparentCheckAndModifyIO(Port))
+        {
+            return;
+        }
+
         if (IoQualification.StringInstruction)
         {
             switch (Size)
@@ -220,6 +225,33 @@ IoHandleSetIoBitmap(VIRTUAL_MACHINE_STATE * VCpu, UINT32 Port)
     else if ((0x8000 <= Port) && (Port <= 0xFFFF))
     {
         SetBit(Port - 0x8000, (unsigned long *)VCpu->IoBitmapVirtualAddressB);
+    }
+    else
+    {
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+/**
+ * @brief Unset bits in I/O Bitmap
+ *
+ * @param VCpu The virtual processor's state
+ * @param Port Port
+ *
+ * @return BOOLEAN Returns true if the I/O Bitmap is successfully applied or false if not applied
+ */
+BOOLEAN
+IoHandleUnSetIoBitmap(VIRTUAL_MACHINE_STATE * VCpu, UINT32 Port)
+{
+    if (Port <= 0x7FFF)
+    {
+        ClearBit(Port, (unsigned long *)VCpu->IoBitmapVirtualAddressA);
+    }
+    else if ((0x8000 <= Port) && (Port <= 0xFFFF))
+    {
+        ClearBit(Port - 0x8000, (unsigned long *)VCpu->IoBitmapVirtualAddressB);
     }
     else
     {

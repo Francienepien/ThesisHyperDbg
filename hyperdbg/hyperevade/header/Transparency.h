@@ -64,6 +64,12 @@ typedef struct _TRANSPARENCY_PROCESS
  */
 BOOLEAN g_TransparentMode;
 
+BOOLEAN g_IsLbrSupported;
+
+BOOLEAN g_isArchLbr;
+
+UINT32 g_LbrCapacity;
+
 //////////////////////////////////////////////////
 //				   Functions					//
 //////////////////////////////////////////////////
