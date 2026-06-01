@@ -14,15 +14,6 @@
 //
 // Global Variables
 //
-extern UINT64 g_CpuidAverage;
-extern UINT64 g_CpuidStandardDeviation;
-extern UINT64 g_CpuidMedian;
-
-extern UINT64 g_RdtscAverage;
-extern UINT64 g_RdtscStandardDeviation;
-extern UINT64 g_RdtscMedian;
-
-extern BOOLEAN                  g_TransparentResultsMeasured;
 extern ACTIVE_DEBUGGING_PROCESS g_ActiveProcessDebuggingState;
 
 /**
@@ -226,7 +217,7 @@ CommandHideFillSystemCalls(SYSTEM_CALL_NUMBERS_INFORMATION * SyscallNumberDetail
         Result = FALSE;
     }
 
-    return TRUE;
+    return Result;
 }
 
 /**
@@ -244,7 +235,7 @@ HyperDbgEnableTransparentMode(UINT32 ProcessId, CHAR * ProcessName, BOOLEAN IsPr
     ULONG                                        ReturnedLength;
     DEBUGGER_HIDE_AND_TRANSPARENT_DEBUGGER_MODE  HideRequest        = {0};
     PDEBUGGER_HIDE_AND_TRANSPARENT_DEBUGGER_MODE FinalRequestBuffer = 0;
-    size_t                                       RequestBufferSize  = 0;
+    SIZE_T                                       RequestBufferSize  = 0;
 
     //
     // Check if debugger is loaded or not
@@ -274,6 +265,12 @@ HyperDbgEnableTransparentMode(UINT32 ProcessId, CHAR * ProcessName, BOOLEAN IsPr
         //
         HideRequest.LengthOfProcessName = (UINT32)strlen(ProcessName) + 1;
         RequestBufferSize               = sizeof(DEBUGGER_HIDE_AND_TRANSPARENT_DEBUGGER_MODE) + HideRequest.LengthOfProcessName;
+    }
+
+    if (!CommandHideFillSystemCalls(&HideRequest.SystemCallNumbersInformation))
+    {
+        ShowMessages("warning, failed to resolve one or more syscall numbers for transparent-mode\n");
+        return FALSE;
     }
 
     //
@@ -374,7 +371,7 @@ CommandHide(vector<CommandToken> CommandTokens, string Command)
     UINT32  TargetPid;
     BOOLEAN TrueIfProcessIdAndFalseIfProcessName;
 
-#if ActivateHyperEvadeProject == TRUE
+#if ActivateHyperEvadeProject != TRUE
 
     ShowMessages("warning, the !hide command (hyperevade project) is in the Beta phase and is not yet well-tested, "
                  "so it is disabled in this version. If you want to test, you can enable it "

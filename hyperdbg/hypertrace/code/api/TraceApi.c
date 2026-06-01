@@ -14,14 +14,14 @@
  * @brief Initialize the hyper trace module callbacks
  * @details This only for callback initialization, not for LBR, PT, etc. initialization
  *
- * @param HypertraceCallbacks
+ * @param HyperTraceCallbacks Pointer to the HyperTrace callbacks structure to be registered
  * @param RunningOnHypervisorEnvironment Whether the initialization is being done for hypervisor environment or not,
  * it can be used to skip some of the initialization steps if it is not for hypervisor environment and behave differently based on that
  *
  * @return BOOLEAN
  */
 BOOLEAN
-HyperTraceInitCallback(HYPERTRACE_CALLBACKS * HypertraceCallbacks,
+HyperTraceInitCallback(HYPERTRACE_CALLBACKS * HyperTraceCallbacks,
                        BOOLEAN                RunningOnHypervisorEnvironment)
 {
     UINT32 ProcessorsCount = 0;
@@ -31,7 +31,7 @@ HyperTraceInitCallback(HYPERTRACE_CALLBACKS * HypertraceCallbacks,
     //
     for (UINT32 i = 0; i < sizeof(HYPERTRACE_CALLBACKS) / sizeof(UINT64); i++)
     {
-        if (((PVOID *)HypertraceCallbacks)[i] == NULL)
+        if (((PVOID *)HyperTraceCallbacks)[i] == NULL)
         {
             //
             // The callback has null entry, so we cannot proceed
@@ -43,7 +43,7 @@ HyperTraceInitCallback(HYPERTRACE_CALLBACKS * HypertraceCallbacks,
     //
     // Save the callbacks
     //
-    PlatformWriteMemory(&g_Callbacks, HypertraceCallbacks, sizeof(HYPERTRACE_CALLBACKS));
+    PlatformWriteMemory(&g_Callbacks, HyperTraceCallbacks, sizeof(HYPERTRACE_CALLBACKS));
 
     //
     // Query the number of processors in the system to initialize the global LBR state list accordingly
@@ -54,6 +54,22 @@ HyperTraceInitCallback(HYPERTRACE_CALLBACKS * HypertraceCallbacks,
     // Initialize the global LBR state list to hold LBR states for each core
     //
     g_LbrStateList = (LBR_STACK_ENTRY *)PlatformMemAllocateZeroedNonPagedPool(sizeof(LBR_STACK_ENTRY) * ProcessorsCount);
+
+    //
+    // Initialize the global PT per-CPU state list. Each entry starts in
+    // PT_STATE_DISABLED with no buffers allocated; PtStart() will lazily
+    // allocate ToPA / output / overflow buffers on first use per core.
+    //
+    g_PtStateList = (PT_PER_CPU *)PlatformMemAllocateZeroedNonPagedPool(sizeof(PT_PER_CPU) * ProcessorsCount);
+    if (g_PtStateList != NULL)
+    {
+        UINT32 i;
+        for (i = 0; i < ProcessorsCount; i++)
+        {
+            PtEngineInitDefaultConfig(&g_PtStateList[i].Config);
+            g_PtStateList[i].State = PT_STATE_DISABLED;
+        }
+    }
 
     //
     // Set the flag to indicate whether the initialization is being done for hypervisor environment or not
@@ -109,6 +125,23 @@ HyperTraceUnInit()
     if (g_ProcessorTraceEnabled)
     {
         HyperTracePtDisable(NULL);
+    }
+
+    //
+    // Free PT buffers (if any) and the per-CPU state list
+    //
+    if (g_PtStateList != NULL)
+    {
+        UINT32 ProcessorsCountLocal = KeQueryActiveProcessorCount(0);
+        UINT32 i;
+
+        for (i = 0; i < ProcessorsCountLocal; i++)
+        {
+            PtEngineFreeBuffers(&g_PtStateList[i]);
+        }
+
+        PlatformMemFreePool(g_PtStateList);
+        g_PtStateList = NULL;
     }
 
     //

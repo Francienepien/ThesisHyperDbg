@@ -1,7 +1,7 @@
 ﻿/**
  * @file hyperdbg-cli.cpp
  * @author Sina Karvandi (sina@hyperdbg.org)
- * @brief Main HyperDbg Cli source coede
+ * @brief Main HyperDbg Cli source code
  * @details
  * @version 0.1
  * @date 2020-04-11
@@ -10,11 +10,15 @@
  *
  */
 
+#ifdef _WIN32
 #include <Windows.h>
-#include <string>
 #include <conio.h>
+#endif
+
+#include <string>
 #include <iostream>
 #include <vector>
+#include <cstring>
 
 #include "SDK/HyperDbgSdk.h"
 #include "SDK/imports/user/HyperDbgLibImports.h"
@@ -24,9 +28,9 @@ using namespace std;
 /**
  * @brief CLI main function
  *
- * @param argc
- * @param argv
- * @return int
+ * @param argc the number of arguments
+ * @param argv the arguments
+ * @return int zero on success, 1 on failure
  */
 int
 main(int argc, char * argv[])
@@ -38,7 +42,9 @@ main(int argc, char * argv[])
     //
     // Set console output code page to UTF-8
     //
+#ifdef _WIN32
     SetConsoleOutputCP(CP_UTF8);
+#endif
 
     printf("HyperDbg Debugger [version: %s, build: %s]\n", CompleteVersion, BuildVersion);
     printf("Please visit https://docs.hyperdbg.org for more information...\n");
@@ -74,7 +80,7 @@ main(int argc, char * argv[])
         //
         reset = TRUE;
 
-    GetMultiLinecCommand:
+    GetMultiLineCommand:
 
         string temp_command = "";
 
@@ -115,7 +121,7 @@ main(int argc, char * argv[])
             //
             // Get next command
             //
-            goto GetMultiLinecCommand;
+            goto GetMultiLineCommand;
         }
         else
         {
