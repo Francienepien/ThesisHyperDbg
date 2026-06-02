@@ -243,6 +243,14 @@ HvHandleControlRegisterAccess(VIRTUAL_MACHINE_STATE *         VCpu,
 
             VmxVmread64P(VMCS_GUEST_CR4, RegPtr);
 
+            if (g_CheckForFootprints)
+            {
+                //
+                // Hide CR4.VMXE when in transparent mode.
+                //
+                *RegPtr &= ~REG_CR4_VMXE;
+            }
+
             break;
 
         default:

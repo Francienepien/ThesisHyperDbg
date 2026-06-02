@@ -12,7 +12,7 @@ VmxEmulationVmclear(VIRTUAL_MACHINE_STATE * VCpu)
     UINT64 FetchedAddress;
 
     //
-    // Emulate Windows VBS behaviour which locks CR4.VMSE at 0.
+    // Emulate Windows VBS behaviour which locks CR4.VMXE at 0.
     // This means we can never execute VMLAUNCH and thus we can never have an active VMCS
     //
     if (g_CheckForFootprints)
@@ -51,7 +51,7 @@ VmxEmulationVmptrld(VIRTUAL_MACHINE_STATE * VCpu)
     UINT64 FetchedAddress;
 
     //
-    // Emulate Windows VBS behaviour which locks CR4.VMSE at 0.
+    // Emulate Windows VBS behaviour which locks CR4.VMXE at 0.
     // This means we can never execute VMLAUNCH and thus we can never have an active VMCS
     //
     if (g_CheckForFootprints)
@@ -85,7 +85,7 @@ VOID
 VmxEmulationVmptrst(VIRTUAL_MACHINE_STATE * VCpu)
 {
     //
-    // Emulate Windows VBS behaviour which locks CR4.VMSE at 0.
+    // Emulate Windows VBS behaviour which locks CR4.VMXE at 0.
     // This means we can never execute VMLAUNCH and thus we can never have an active VMCS
     //
     if (g_CheckForFootprints)
@@ -116,7 +116,7 @@ VmxEmulationVmread(VIRTUAL_MACHINE_STATE * VCpu)
     UINT64 FetchedField;
     UINT64 FieldValue;
     //
-    // Emulate Windows VBS behaviour which locks CR4.VMSE at 0.
+    // Emulate Windows VBS behaviour which locks CR4.VMXE at 0.
     // This means we can never execute VMLAUNCH and thus we can never have an active VMCS
     //
     if (g_CheckForFootprints)
@@ -149,7 +149,7 @@ VOID
 VmxEmulationVmresume(VIRTUAL_MACHINE_STATE * VCpu)
 {
     //
-    // Emulate Windows VBS behaviour which locks CR4.VMSE at 0.
+    // Emulate Windows VBS behaviour which locks CR4.VMXE at 0.
     // This means we can never execute VMLAUNCH and thus we can never have an active VMCS
     //
     if (g_CheckForFootprints)
@@ -181,7 +181,7 @@ VmxEmulationVmwrite(VIRTUAL_MACHINE_STATE * VCpu)
     UINT64 FieldValue;
 
     //
-    // Emulate Windows VBS behaviour which locks CR4.VMSE at 0.
+    // Emulate Windows VBS behaviour which locks CR4.VMXE at 0.
     // This means we can never execute VMLAUNCH and thus we can never have an active VMCS
     //
     if (g_CheckForFootprints)
@@ -214,7 +214,7 @@ VOID
 VmxEmulationVmxoff(VIRTUAL_MACHINE_STATE * VCpu)
 {
     //
-    // Emulate Windows VBS behaviour which locks CR4.VMSE at 0.
+    // Emulate Windows VBS behaviour which locks CR4.VMXE at 0.
     // This means we can never execute VMLAUNCH and thus we can never have an active VMCS
     //
     if (g_CheckForFootprints)
@@ -243,7 +243,7 @@ VOID
 VmxEmulationVmlaunch(VIRTUAL_MACHINE_STATE * VCpu)
 {
     //
-    // Emulate Windows VBS behaviour which locks CR4.VMSE at 0.
+    // Emulate Windows VBS behaviour which locks CR4.VMXE at 0.
     // This means we can never execute VMLAUNCH and thus we can never have an active VMCS
     //
     if (g_CheckForFootprints)
@@ -295,7 +295,7 @@ VmxEmulationVmxon(VIRTUAL_MACHINE_STATE * VCpu)
     {
         return;
     }
-    else if (!(GetGuestCr4(VCpu) & (1ULL << 13)))
+    else if (!(GetGuestCr4(VCpu) & (REG_CR4_VMXE)))
     {
         EventInjectUndefinedOpcode(VCpu);
         return;
