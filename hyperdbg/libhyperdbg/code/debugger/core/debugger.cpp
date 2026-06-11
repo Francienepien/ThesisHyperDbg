@@ -26,6 +26,8 @@ extern BOOLEAN                  g_IsConnectedToRemoteDebuggee;
 extern BOOLEAN                  g_IsConnectedToRemoteDebugger;
 extern BOOLEAN                  g_IsSerialConnectedToRemoteDebuggee;
 extern BOOLEAN                  g_IsSerialConnectedToRemoteDebugger;
+extern BOOLEAN                  g_IsKdModuleLoaded;
+extern BOOLEAN                  g_IsVmmModuleLoaded;
 extern ACTIVE_DEBUGGING_PROCESS g_ActiveProcessDebuggingState;
 
 /**
@@ -570,13 +572,13 @@ ShowErrorMessage(UINT32 Error)
         break;
 
     case DEBUGGER_ERROR_HYPERTRACE_NOT_INITIALIZED:
-        ShowMessages("err, the HyperTrace module is not loaded and initialized, "
-                     "use the 'load trace' command to load the HyperTrace module  (%x)\n",
+        ShowMessages("err, the hypertrace module is not loaded and initialized, "
+                     "use the 'load trace' command to load the hypertrace module  (%x)\n",
                      Error);
         break;
 
     case DEBUGGER_ERROR_INVALID_HYPERTRACE_OPERATION_TYPE:
-        ShowMessages("err, invalid HyperTrace operation type is specified (%x)\n",
+        ShowMessages("err, invalid hypertrace operation type is specified (%x)\n",
                      Error);
         break;
 
@@ -617,12 +619,22 @@ ShowErrorMessage(UINT32 Error)
         break;
 
     case DEBUGGER_ERROR_VMM_CANNOT_BE_INITIALIZED_IF_HYPERTRACE_IS_LOADED:
-        ShowMessages("err, HyperTrace is already loaded, please unload HyperTrace module using the "
-                     "'unload' command and then load the 'VMM' module. Then you can load HyperTrace "
-                     "after loading the VMM as it is because HyperTrace behaves differently to sync "
+        ShowMessages("err, hypertrace is already loaded, please unload hypertrace module using the "
+                     "'unload' command and then load the 'VMM' module. Then you can load hypertrace "
+                     "after loading the VMM as it is because hypertrace behaves differently to sync "
                      "with VMM modules; it needs to have this notion that it is running within the "
                      "hypervisor, so that is why it needs to be initialized again if the VMM module "
                      "is loaded (%x)\n",
+                     Error);
+        break;
+
+    case DEBUGGER_ERROR_VMM_CANNOT_BE_INITIALIZED_IF_DEBUGGER_IS_NOT_LOADED:
+        ShowMessages("err, the VMM module cannot be initialized because the debugger is not loaded (%x)\n",
+                     Error);
+        break;
+
+    case DEBUGGER_ERROR_CANNOT_INITIALIZE_DEBUGGER:
+        ShowMessages("err, cannot initialize the debugger (%x)\n",
                      Error);
         break;
 
@@ -1373,8 +1385,7 @@ SendEventToKernel(PDEBUGGER_GENERAL_EVENT_DETAIL Event,
         //
         // It's either a debuggee or a local debugging instance
         //
-
-        AssertShowMessageReturnStmt(g_DeviceHandle, ASSERT_MESSAGE_DRIVER_NOT_LOADED, AssertReturnFalse);
+        AssertShowMessageReturnStmt(g_IsVmmModuleLoaded, g_DeviceHandle, ASSERT_MESSAGE_VMM_NOT_LOADED, ASSERT_MESSAGE_DRIVER_NOT_LOADED, AssertReturnFalse);
 
         //
         // Send IOCTL
@@ -1538,8 +1549,7 @@ RegisterActionToEvent(PDEBUGGER_GENERAL_EVENT_DETAIL Event,
         //
         // It's either a local debugger to in vmi-mode remote connection
         //
-
-        AssertShowMessageReturnStmt(g_DeviceHandle, ASSERT_MESSAGE_DRIVER_NOT_LOADED, AssertReturnFalse);
+        AssertShowMessageReturnStmt(g_IsVmmModuleLoaded, g_DeviceHandle, ASSERT_MESSAGE_VMM_NOT_LOADED, ASSERT_MESSAGE_DRIVER_NOT_LOADED, AssertReturnFalse);
 
         //
         // Send IOCTLs

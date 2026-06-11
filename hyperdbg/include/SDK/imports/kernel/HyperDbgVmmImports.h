@@ -45,10 +45,10 @@ IMPORT_EXPORT_VMM VOID
 VmFuncSetRflagTrapFlag(BOOLEAN Set);
 
 IMPORT_EXPORT_VMM VOID
-VmFuncRegisterMtfBreak(UINT32 CoreId);
+VmFuncSetInstrumentationStepInState(UINT32 CoreId);
 
 IMPORT_EXPORT_VMM VOID
-VmFuncUnRegisterMtfBreak(UINT32 CoreId);
+VmFuncUnsetInstrumentationStepInState(UINT32 CoreId);
 
 IMPORT_EXPORT_VMM VOID
 VmFuncSetLoadDebugControls(UINT32 CoreId, BOOLEAN Set);
@@ -267,6 +267,9 @@ VmFuncQueryModeExecTrap();
 
 IMPORT_EXPORT_VMM BOOLEAN
 VmFuncCheckCpuSupportForSaveAndLoadDebugControls();
+
+IMPORT_EXPORT_VMM BOOLEAN
+VmFuncQueryInstrumentationStepInState(UINT32 CoreId);
 
 IMPORT_EXPORT_VMM BOOLEAN
 VmFuncCheckCpuSupportForLoadAndClearGuestIa32LbrCtlControls();
@@ -755,25 +758,6 @@ ReadPhysicalMemoryUsingMapIoSpace(PVOID PhysicalAddress, PVOID Buffer, SIZE_T Bu
 
 IMPORT_EXPORT_VMM BOOLEAN
 WritePhysicalMemoryUsingMapIoSpace(PVOID PhysicalAddress, PVOID Buffer, SIZE_T BufferSize);
-
-//////////////////////////////////////////////////
-//                 Pool Manager     	   		//
-//////////////////////////////////////////////////
-
-IMPORT_EXPORT_VMM BOOLEAN
-PoolManagerCheckAndPerformAllocationAndDeallocation();
-
-IMPORT_EXPORT_VMM BOOLEAN
-PoolManagerRequestAllocation(SIZE_T Size, UINT32 Count, POOL_ALLOCATION_INTENTION Intention);
-
-IMPORT_EXPORT_VMM UINT64
-PoolManagerRequestPool(POOL_ALLOCATION_INTENTION Intention, BOOLEAN RequestNewPool, UINT32 Size);
-
-IMPORT_EXPORT_VMM BOOLEAN
-PoolManagerFreePool(UINT64 AddressToFree);
-
-IMPORT_EXPORT_VMM VOID
-PoolManagerShowPreAllocatedPools();
 
 //////////////////////////////////////////////////
 //          VMX Registers Modification  		//

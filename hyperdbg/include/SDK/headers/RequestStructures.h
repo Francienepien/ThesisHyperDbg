@@ -1,6 +1,7 @@
 /**
  * @file RequestStructures.h
  * @author Sina Karvandi (sina@hyperdbg.org)
+ * @author jtaw5649
  * @brief HyperDbg's SDK Headers Request Packets
  * @details This file contains definitions of request packets (enums, structs)
  * @version 0.2
@@ -612,6 +613,8 @@ typedef struct _DEBUGGER_HIDE_AND_TRANSPARENT_DEBUGGER_MODE
     UINT32 KernelStatus; /* DEBUGGER_OPERATION_WAS_SUCCESSFUL ,
                           DEBUGGER_ERROR_UNABLE_TO_HIDE_OR_UNHIDE_DEBUGGER
                           */
+
+    UINT32 EvadeMask; // zero means TRANSPARENT_EVADE_MASK_DEFAULT
 
 } DEBUGGER_HIDE_AND_TRANSPARENT_DEBUGGER_MODE,
     *PDEBUGGER_HIDE_AND_TRANSPARENT_DEBUGGER_MODE;
@@ -1387,8 +1390,10 @@ typedef struct _HYPERTRACE_PT_OPERATION_PACKETS
     UINT32        TraceKernel;   /* Boolean: trace CPL == 0                */
     UINT64        TargetCr3;     /* CR3 to filter by (0 = no filter)       */
     UINT64        BufferSize;    /* Output buffer size (0 = keep current)  */
-    UINT32        NumAddrRanges; /* Number of valid AddrRanges entries     */
-    UINT32        Reserved;      /* Padding to keep the array 8-aligned    */
+    UINT32        NumAddrRanges;   /* Number of valid AddrRanges entries   */
+    UINT32        TargetProcessId; /* Process to trace; kernel resolves it
+                                      to TargetCr3 when TargetCr3 == 0
+                                      (0 = no PID-based CR3 filter)         */
     PT_ADDR_RANGE AddrRanges[PT_MAX_ADDR_RANGES];
 
     //

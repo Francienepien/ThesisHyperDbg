@@ -26,6 +26,12 @@
 
 #define ASSERT_MESSAGE_DRIVER_NOT_LOADED "handle of the driver not found, probably the driver is not loaded. Did you use 'load' command?\n"
 
+#define ASSERT_MESSAGE_KD_NOT_LOADED "the kd (kernel debugger) module is not loaded. Did you use 'load kd' command?\n"
+
+#define ASSERT_MESSAGE_VMM_NOT_LOADED "the vmm (virtualization) module is not loaded. Did you use 'load vmm' command?\n"
+
+#define ASSERT_MESSAGE_HYPERTRACE_NOT_LOADED "the trace (hypertrace) module is not loaded. Did you use 'load trace' command?\n"
+
 #define ASSERT_MESSAGE_BUILD_SIGNATURE_DOESNT_MATCH "the handshaking process was successful; however, there is a mismatch between " \
                                                     "the version/build of the debuggee and the debugger. please use the same "      \
                                                     "version/build for both the debuggee and debugger\n"
@@ -50,18 +56,21 @@
         }                                \
     } while (0)
 
-#define AssertShowMessageReturnStmt(expr, message, rc) \
-    do                                                 \
-    {                                                  \
-        if (expr)                                      \
-        {                                              \
-            /* likely */                               \
-        }                                              \
-        else                                           \
-        {                                              \
-            ShowMessages(message);                     \
-            rc;                                        \
-        }                                              \
+#define AssertShowMessageReturnStmt(expr1, expr2, message1, message2, rc) \
+    do                                                                     \
+    {                                                                      \
+        if (expr1 && expr2)                                                \
+        {                                                                  \
+            /* likely */                                                   \
+        }                                                                  \
+        else                                                               \
+        {                                                                  \
+            if (!expr1)                                                    \
+                ShowMessages(message1);                                    \
+            else if (!expr2)                                               \
+                ShowMessages(message2);                                    \
+            rc;                                                            \
+        }                                                                  \
     } while (0)
 
 /**
@@ -93,7 +102,7 @@
             &g_KernelSyncronizationObjectsHandleTable[KernelSyncObjectId]; \
                                                                            \
         SyncronizationObject->IsOnWaitingState = TRUE;                     \
-        WaitForSingleObject(SyncronizationObject->EventHandle, INFINITE);  \
+        PlatformWaitForSingleObject(SyncronizationObject->EventHandle, INFINITE); \
                                                                            \
     } while (FALSE);
 
@@ -104,7 +113,7 @@
             &g_UserSyncronizationObjectsHandleTable[UserSyncObjectId];    \
                                                                           \
         SyncronizationObject->IsOnWaitingState = TRUE;                    \
-        WaitForSingleObject(SyncronizationObject->EventHandle, INFINITE); \
+        PlatformWaitForSingleObject(SyncronizationObject->EventHandle, INFINITE); \
                                                                           \
     } while (FALSE);
 

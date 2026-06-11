@@ -1,6 +1,7 @@
 /**
  * @file export.cpp
  * @author Sina Karvandi (sina@hyperdbg.org)
+ * @author jtaw5649
  * @brief Exported functions from libhyperdbg interface
  * @details
  * @version 0.10
@@ -53,6 +54,17 @@ hyperdbg_u_load_vmm()
 }
 
 /**
+ * @brief Unload all modules
+ *
+ * @return INT Returns 0 if it was successful and 1 if it was failed
+ */
+INT
+hyperdbg_u_unload_all_modules()
+{
+    return HyperDbgUnloadAllModules();
+}
+
+/**
  * @brief Unload the VMM module
  *
  * @return INT Returns 0 if it was successful and 1 if it was failed
@@ -61,6 +73,17 @@ INT
 hyperdbg_u_unload_vmm()
 {
     return HyperDbgUnloadVmm();
+}
+
+/**
+ * @brief Unload the trace module
+ *
+ * @return INT Returns 0 if it was successful and 1 if it was failed
+ */
+INT
+hyperdbg_u_unload_hypertrace_module()
+{
+    return HyperDbgUnloadHyperTrace();
 }
 
 /**
@@ -97,6 +120,17 @@ hyperdbg_u_uninstall_kd_driver()
 }
 
 /**
+ * @brief Start the KD driver
+ *
+ * @return INT Returns 0 if it was successful and 1 if it was failed
+ */
+INT
+hyperdbg_u_start_kd_driver()
+{
+    return HyperDbgStartKdDriver();
+}
+
+/**
  * @brief Stop the KD driver
  *
  * @return INT Returns 0 if it was successful and 1 if it was failed
@@ -130,7 +164,7 @@ hyperdbg_u_load_kd_module()
 }
 
 /**
- * @brief Load the HyperTrace module
+ * @brief Load the hypertrace module
  *
  * @return INT Returns 0 if it was successful and 1 if it was failed
  */
@@ -138,6 +172,17 @@ INT
 hyperdbg_u_load_hypertrace_module()
 {
     return HyperDbgLoadHyperTraceModule();
+}
+
+/**
+ * @brief Load all modules
+ *
+ * @return INT Returns 0 if it was successful and 1 if it was failed
+ */
+INT
+hyperdbg_u_load_all_modules()
+{
+    return HyperDbgLoadAllModules();
 }
 
 /**
@@ -834,6 +879,21 @@ hyperdbg_u_enable_transparent_mode(UINT32 ProcessId, CHAR * ProcessName, BOOLEAN
 }
 
 /**
+ * @brief Enable transparent mode with a feature mask
+ * @param ProcessId The process ID to enable transparent mode for
+ * @param ProcessName The process name to enable transparent mode for
+ * @param IsProcessId If true, ProcessId is used, otherwise ProcessName is used
+ * @param EvadeMask The transparent-mode feature mask, or zero for default behavior
+ *
+ * @return BOOLEAN
+ */
+BOOLEAN
+hyperdbg_u_enable_transparent_mode_ex(UINT32 ProcessId, CHAR * ProcessName, BOOLEAN IsProcessId, UINT32 EvadeMask)
+{
+    return HyperDbgEnableTransparentModeEx(ProcessId, ProcessName, IsProcessId, EvadeMask);
+}
+
+/**
  * @brief Disable transparent mode
  *
  * @return BOOLEAN
@@ -884,4 +944,32 @@ BOOLEAN
 hyperdbg_u_lbr_dump(HYPERTRACE_LBR_DUMP_PACKETS * LbrdumpRequest)
 {
     return HyperDbgLbrdumpSendRequest(LbrdumpRequest);
+}
+
+/**
+ * @brief Perform an Intel PT operation (enable / disable / pause / resume /
+ * size / dump / flush / filter)
+ *
+ * @param PtRequest The PT operation request packet
+ *
+ * @return BOOLEAN TRUE if the operation was successful, otherwise FALSE
+ */
+BOOLEAN
+hyperdbg_u_pt_operation(HYPERTRACE_PT_OPERATION_PACKETS * PtRequest)
+{
+    return HyperDbgPerformPtOperation(PtRequest);
+}
+
+/**
+ * @brief Map the per-CPU Intel PT output buffers into the calling process
+ *
+ * @param MmapRequest The PT mmap request packet; filled with per-CPU
+ * { UserVa, Size } on success
+ *
+ * @return BOOLEAN TRUE if the operation was successful, otherwise FALSE
+ */
+BOOLEAN
+hyperdbg_u_pt_mmap(HYPERTRACE_PT_MMAP_PACKETS * MmapRequest)
+{
+    return HyperDbgPtMmapSendRequest(MmapRequest);
 }

@@ -1,6 +1,7 @@
 /**
  * @file debugger.h
  * @author Sina Karvandi (sina@hyperdbg.org)
+ * @author jtaw5649
  * @brief General debugger functions
  * @details
  * @version 0.1
@@ -311,7 +312,16 @@ BOOLEAN
 HyperDbgEnableTransparentMode(UINT32 ProcessId, CHAR * ProcessName, BOOLEAN IsProcessId);
 
 BOOLEAN
+HyperDbgEnableTransparentModeEx(UINT32 ProcessId, CHAR * ProcessName, BOOLEAN IsProcessId, UINT32 EvadeMask);
+
+BOOLEAN
 HyperDbgDisableTransparentMode();
 
 BOOLEAN
 HyperDbgLbrdumpSendRequest(HYPERTRACE_LBR_DUMP_PACKETS * LbrdumpRequest);
+
+BOOLEAN
+HyperDbgPerformPtOperation(HYPERTRACE_PT_OPERATION_PACKETS * PtRequest);
+
+BOOLEAN
+HyperDbgPtMmapSendRequest(HYPERTRACE_PT_MMAP_PACKETS * MmapRequest);

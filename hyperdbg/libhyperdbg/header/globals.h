@@ -317,10 +317,12 @@ DEBUGGER_EVENT_AND_ACTION_RESULT g_DebuggeeResultOfAddingActionsToEvent = {
  * to write simultaneously but it's needed for write)
  *
  */
+#ifdef _WIN32
 OVERLAPPED g_OverlappedIoStructureForReadDebugger  = {0};
 OVERLAPPED g_OverlappedIoStructureForWriteDebugger = {0};
 
 OVERLAPPED g_OverlappedIoStructureForReadDebuggee = {0};
+#endif // _WIN32
 
 /**
  * @brief Shows whether the queried event is enabled or disabled
@@ -464,10 +466,10 @@ PVOID g_MessageHandler = 0;
 PVOID g_MessageHandlerSharedBuffer = 0;
 
 /**
- * @brief Shows whether the vmxoff process start or not
+ * @brief Shows whether the message logging window is closed or not
  *
  */
-BOOLEAN g_IsVmxOffProcessStart;
+BOOLEAN g_IsMessageLoggingWindowClosed;
 
 /**
  * @brief Holds the global handle of device which is used
