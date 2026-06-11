@@ -37,6 +37,14 @@ TransparentCheckAndModifyCpuid(PGUEST_REGS Regs, INT32 CpuInfo[])
         //
         CpuInfo[0] = CpuInfo[1] = CpuInfo[2] = CpuInfo[3] = 0x40000000;
     }
+    else if (Regs->rax == CPUID_STRUCTURED_EXTENDED_FEATURE_FLAGS && Regs->rcx == 0)
+    {
+        // LogInfo("TransparentCheckAndModifyCpuid: CPUID.07H.00H ArchLBR bit: %d", (CpuInfo[3] >> 19) & 1);
+    }
+    else if (Regs->rax == 0x1c)
+    {
+        // LogInfo("TransparentCheckAndModifyCpuid: CPUID.1CH.00H ArchLBR depth mask: 0x%02X", CpuInfo[0] & 0xFF);
+    }
 }
 
 /**
@@ -75,6 +83,14 @@ TransparentCheckAndModifyMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
     //     return FALSE;
     // }
 
+    UINT64 MsrValue;
+    const UINT32 LbrCapacity = g_LbrCapacity;
+
+    if (TargetMsr != 0x400000b1 && TargetMsr != 0x400000b0)
+    {
+        LogInfo("TransparentCheckAndModifyMsrRead: MSR: %x", TargetMsr);
+    }
+
     switch (TargetMsr)
     {
     case MSR_SMI_COUNT:
@@ -86,9 +102,68 @@ TransparentCheckAndModifyMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
 
         return TRUE;
     }
+    case IA32_DEBUGCTL:
+    case MSR_LEGACY_LBR_SELECT:
+    case MSR_LBR_TOS:
+    case IA32_LBR_CTL:
+    {
+        MsrValue = CpuReadMsr(TargetMsr);
+
+        SaveMsrValueToRegisters(Regs, MsrValue);
+
+        return TRUE;
+    }
     }
 
-    return FALSE;
+  //if (!g_IsLbrSupported)
+  //{
+  //    return FALSE;
+  //}
+
+      if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_FROM_IP, LbrCapacity) ||
+          IN_MSR_RANGE(TargetMsr, IA32_LBR_0_TO_IP, LbrCapacity) ||
+          IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, LbrCapacity))
+      {
+          MsrValue = CpuReadMsr(TargetMsr);
+
+          LogInfo("TransparentCheckAndModifyMsrRead reading arch msr: %x, Value: %llx", TargetMsr, MsrValue);
+
+          SaveMsrValueToRegisters(Regs, MsrValue);
+
+          return TRUE;
+      }
+      if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_FROM_IP, MAXIMUM_LBR_CAPACITY) ||
+          IN_MSR_RANGE(TargetMsr, IA32_LBR_0_TO_IP, MAXIMUM_LBR_CAPACITY) ||
+          IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, MAXIMUM_LBR_CAPACITY))
+      {
+          //
+          // Trying to access LBR stack past supported range.
+          //
+          g_Callbacks.EventInjectGeneralProtection();
+          return TRUE;
+      }
+      if (IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_FROM_IP, LbrCapacity) ||
+          IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_TO_IP, LbrCapacity) ||
+          IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_INFO_0, LbrCapacity))
+      {
+          MsrValue = CpuReadMsr(TargetMsr);
+
+          SaveMsrValueToRegisters(Regs, MsrValue);
+
+          return TRUE;
+      }
+      if (IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_FROM_IP, MAXIMUM_LBR_CAPACITY) ||
+          IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_TO_IP, MAXIMUM_LBR_CAPACITY) ||
+          IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_INFO_0, MAXIMUM_LBR_CAPACITY))
+      {
+          //
+          // Trying to access LBR stack past supported range.
+          //
+          g_Callbacks.EventInjectGeneralProtection();
+          return TRUE;
+      }
+
+  return FALSE;
 }
 
 /**
@@ -128,7 +203,13 @@ TransparentCheckAndModifyMsrWrite(PGUEST_REGS Regs, UINT32 TargetMsr)
 
     UINT64            MsrValue;
     UINT64            DebugCtlValue;
+    const UINT32      LbrCapacity = g_LbrCapacity;
 
+    if (TargetMsr != 0x400000b1 && TargetMsr != 0x400000b0)
+    {
+        LogInfo("TransparentCheckAndModifyMsrWrite: MSR: %x", TargetMsr);
+    }
+    
     MsrValue = GetMsrValueFromRegisters(Regs);
 
     switch (TargetMsr)
@@ -163,66 +244,69 @@ TransparentCheckAndModifyMsrWrite(PGUEST_REGS Regs, UINT32 TargetMsr)
         }
 
         CpuWriteMsr(TargetMsr, MsrValue);
+
+        return TRUE;
     }
     case MSR_LBR_TOS:
     case IA32_LBR_CTL:
     {
+        LogInfo("TransparentCheckAndModifyMsrWrite writing arch msr lbr ctl or lbr tos: %x, Value: %llx", TargetMsr, MsrValue);
+
         CpuWriteMsr(TargetMsr, MsrValue);
+
+        LogInfo("verify: %llx", CpuReadMsr(IA32_LBR_CTL));
 
         return TRUE;
     }
     }
 
-    if (!g_IsLbrSupported)
-    {
-        return FALSE;
-    }
+    //if (!g_IsLbrSupported)
+    //{
+    //    return FALSE;
+    //}
 
-    if (g_isArchLbr)
-    {
-        if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_FROM_IP, MAXIMUM_LBR_CAPACITY) ||
-            IN_MSR_RANGE(TargetMsr, IA32_LBR_0_TO_IP, MAXIMUM_LBR_CAPACITY) ||
-            IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, MAXIMUM_LBR_CAPACITY))
-        {
-            if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_FROM_IP, g_LbrCapacity) ||
-                IN_MSR_RANGE(TargetMsr, IA32_LBR_0_TO_IP, g_LbrCapacity) ||
-                IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, g_LbrCapacity))
-            {
-                CpuWriteMsr(TargetMsr, MsrValue);
 
-                return TRUE;
-            }
-
-            //
-            // Trying to access LBR stack past supported range.
-            //
-            g_Callbacks.EventInjectGeneralProtection();
-            return TRUE;
-        }
-    }
-
-    //
-    // Check whether TargetMSR is part of legacy LBR range.
-    //
-    if (IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_FROM_IP, MAXIMUM_LBR_CAPACITY) ||
-        IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_TO_IP, MAXIMUM_LBR_CAPACITY) ||
-        IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_INFO_0, MAXIMUM_LBR_CAPACITY))
-    {
-        if (IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_FROM_IP, g_LbrCapacity) ||
-            IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_TO_IP, g_LbrCapacity) ||
-            IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_INFO_0, g_LbrCapacity))
+        if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_FROM_IP, LbrCapacity) ||
+            IN_MSR_RANGE(TargetMsr, IA32_LBR_0_TO_IP, LbrCapacity) ||
+            IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, LbrCapacity))
         {
             CpuWriteMsr(TargetMsr, MsrValue);
 
             return TRUE;
         }
 
+        if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_FROM_IP, MAXIMUM_LBR_CAPACITY) ||
+            IN_MSR_RANGE(TargetMsr, IA32_LBR_0_TO_IP, MAXIMUM_LBR_CAPACITY) ||
+            IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, MAXIMUM_LBR_CAPACITY))
+        {
+            //
+            // Trying to access LBR stack past supported range.
+            //
+            g_Callbacks.EventInjectGeneralProtection();
+            return TRUE;
+        }
         //
-        // Trying to access LBR stack past supported range.
+        // Check whether TargetMSR is part of legacy LBR range.
         //
-        g_Callbacks.EventInjectGeneralProtection();
-        return TRUE;
-    }
+        if (IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_FROM_IP, LbrCapacity) ||
+            IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_TO_IP, LbrCapacity) ||
+            IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_INFO_0, LbrCapacity))
+        {
+            CpuWriteMsr(TargetMsr, MsrValue);
+
+            return TRUE;
+        }
+
+        if (IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_FROM_IP, MAXIMUM_LBR_CAPACITY) ||
+            IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_TO_IP, MAXIMUM_LBR_CAPACITY) ||
+            IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_INFO_0, MAXIMUM_LBR_CAPACITY))
+        {
+            //
+            // Trying to access LBR stack past supported range.
+            //
+            g_Callbacks.EventInjectGeneralProtection();
+            return TRUE;
+        }
     
     return FALSE;
 }
@@ -245,9 +329,10 @@ TransparentCheckAndTrapFlagAfterVmexit()
 BOOLEAN
 TransparentCheckAndModifyIO(UINT16 Port)
 {
+    LogInfo("TransparentCheckAndModifyIO: Port = %x", Port);
     switch(Port) 
     {
-        case 0x2B :
+        case 0xB2 :
         {
             //
             // Guest attempts to trigger an SMI

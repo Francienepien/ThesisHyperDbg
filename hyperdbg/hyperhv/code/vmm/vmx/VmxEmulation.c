@@ -113,8 +113,11 @@ VmxEmulationVmptrst(VIRTUAL_MACHINE_STATE * VCpu)
 VOID
 VmxEmulationVmread(VIRTUAL_MACHINE_STATE * VCpu)
 {
-    UINT64 FetchedField;
-    UINT64 FieldValue;
+    UINT64                  FetchedField;
+    UINT64                  FieldValue;
+    UINT64                  DestAddress;
+    VMEXIT_INFO             ExitInfo = {0};
+
     //
     // Emulate Windows VBS behaviour which locks CR4.VMXE at 0.
     // This means we can never execute VMLAUNCH and thus we can never have an active VMCS
@@ -130,13 +133,30 @@ VmxEmulationVmread(VIRTUAL_MACHINE_STATE * VCpu)
         return;
     }
 
-    VmexitFetchVMCSField(VCpu, &FetchedField);
-
+    VmxVmread32P(VMCS_VMEXIT_INSTRUCTION_INFO, (UINT32 *)&ExitInfo);
+    FetchedField = GetRegister(VCpu, ExitInfo.Reg2);
     VmxVmread64P(FetchedField, &FieldValue);
 
     //
-    // TODO: Pass read value to guest.
+    // If not in transparency mode, we pass the VMCS field contents to the guest.
     //
+    if (ExitInfo.VmReadWrite.MemReg)
+    {
+        SetRegister(VCpu, ExitInfo.VmReadWrite.Reg1, FieldValue);\
+        LogInfo("Guest executed VMREAD: Field=0x%llx, Value=0x%llx\n", FetchedField, GetRegister(VCpu, ExitInfo.VmReadWrite.Reg1));
+    }
+    else
+    {
+        if (!CalculateAddressFromExitInfo(VCpu, ExitInfo, VCpu->ExitQualification, &DestAddress))
+        {
+            EventInjectUndefinedOpcode(VCpu);
+            return;
+        }
+        *(UINT64 *)DestAddress = FieldValue;
+        LogInfo("Guest executed VMREAD: Field=0x%llx, Value=0x%llx\n", FetchedField, DestAddress);
+    }
+
+    VMSucceed();
 }
 
 /**
@@ -179,6 +199,7 @@ VmxEmulationVmwrite(VIRTUAL_MACHINE_STATE * VCpu)
 {
     UINT64 FetchedField;
     UINT64 FieldValue;
+    VMEXIT_INFO ExitInfo = {0};
 
     //
     // Emulate Windows VBS behaviour which locks CR4.VMXE at 0.
@@ -195,13 +216,17 @@ VmxEmulationVmwrite(VIRTUAL_MACHINE_STATE * VCpu)
         return;
     }
 
-    VmexitFetchVMCSField(VCpu, &FetchedField);
-
-    FieldValue = 0;
+    VmxVmread32P(VMCS_VMEXIT_INSTRUCTION_INFO, (UINT32 *)&ExitInfo);
+    FieldValue   = GetRegister(VCpu, ExitInfo.VmReadWrite.Reg1);
+    FetchedField = GetRegister(VCpu, ExitInfo.VmReadWrite.Reg2);
 
     //
-    // TODO: Firgure out written value and write it to the relevant field in the VMCS
+    // We do not perform the write, as they are likely unrecoverable, and may cause deadlocks.
+    // Instead log the attempt to notify the user in case they want to investigate further.
     //
+    LogInfo("Guest tried to execute VMWRITE on field: 0x%llx, with value: 0x%llx\n", FetchedField, FieldValue);
+
+    VMSucceed();
 }
 
 /**
@@ -271,12 +296,13 @@ VmxEmulationVmlaunch(VIRTUAL_MACHINE_STATE * VCpu)
 VOID
 VmxEmulationVmxon(VIRTUAL_MACHINE_STATE * VCpu)
 {
-    MSR    Msr_IA32_FEATURE_CONTROL = {0};
-    UINT64 FetchedAddress;
+    //
+    // We do not care about execution mode, as we already know it is VMX-root.
+    // We also dont keep track of a guests IA32_FEATURE_CONTROL, so we assume it is set.
+    // Either way we do not support SMX, so the feature doesn't hold much value.
+    //
 
-    //
-    // TODO: Check control flow (order of branches mostly)
-    //
+    UINT64 FetchedAddress;
 
     //
     // Emulate Windows VBS behaviour which locks CR4.VMXE at 0.
@@ -290,25 +316,13 @@ VmxEmulationVmxon(VIRTUAL_MACHINE_STATE * VCpu)
     ///
     /// Check whether safety features allow execution
     ///
-    if ( // Register operand ||
-        CheckRegistersForException(VCpu))
+    if (CheckRegistersForException(VCpu))
     {
         return;
     }
     else if (!(GetGuestCr4(VCpu) & (REG_CR4_VMXE)))
     {
         EventInjectUndefinedOpcode(VCpu);
-        return;
-    }
-
-    VmxVmread64P(IA32_FEATURE_CONTROL, &Msr_IA32_FEATURE_CONTROL.Flags);
-
-    if (VmxGetCurrentExecutionMode() ||
-        !(Msr_IA32_FEATURE_CONTROL.Flags & 1ULL) ||
-        !(Msr_IA32_FEATURE_CONTROL.Flags & (1ULL << 2)) // && OUTSIDE OF SMX OP
-    )
-    {
-        EventInjectGeneralProtection();
         return;
     }
 
@@ -340,7 +354,6 @@ VmxEmulationInvept(VIRTUAL_MACHINE_STATE * VCpu)
     VMX_SEGMENT_SELECTOR Cs;
     VMEXIT_INFO          ExitInfo = {0};
     UINT64               InveptType;
-    UINT64               Displacement;
     UINT64               Address;
     INVEPT_DESCRIPTOR    Descriptor = {0};
 
@@ -367,8 +380,7 @@ VmxEmulationInvept(VIRTUAL_MACHINE_STATE * VCpu)
     VmxVmread32P(VMCS_VMEXIT_INSTRUCTION_INFO, (UINT32 *)&ExitInfo);
     InveptType = GetRegister(VCpu, ExitInfo.Reg2);
 
-    VmxVmread64P(VMCS_EXIT_QUALIFICATION, &Displacement);
-    if (!CalculateAddressFromExitInfo(VCpu, ExitInfo, Displacement, &Address))
+    if (!CalculateAddressFromExitInfo(VCpu, ExitInfo, VCpu->ExitQualification, &Address))
     {
         EventInjectUndefinedOpcode(VCpu);
         return;
@@ -431,13 +443,13 @@ VmxEmulationInvvpid(VIRTUAL_MACHINE_STATE * VCpu)
     //  disassemble the instruction to find it. After this we can use the exit info to calculate
     //  the operand address using the formula specified in chapter 3.7.5 of vol 1 of the SDM.
     //
-    // Displacement = GetDescriptorDisplacementFromOperandByIndex(VCpu->LastVmexitRip, CommonIsGuestOnUsermode32Bit(), 1);
     VmxVmread64P(VMCS_EXIT_QUALIFICATION, &Displacement);
     if (!CalculateAddressFromExitInfo(VCpu, ExitInfo, Displacement, &Address))
     {
         EventInjectUndefinedOpcode(VCpu);
         return;
     }
+
     MemoryMapperReadMemorySafeOnTargetProcess(Address, &Descriptor, 16);
 
     switch (InvvpidType)
@@ -484,38 +496,43 @@ VmxEmulationInvvpid(VIRTUAL_MACHINE_STATE * VCpu)
 VOID
 VmxEmulationGetsec(VIRTUAL_MACHINE_STATE * VCpu)
 {
+    long capabilities;
+    long GetsecLeaf;
     //
-    // GETSEC only works if CPUID.01H:ECX[6] = 1.
-    // Should likely check
+    // CR4.SMXE is never set in transparent mode.
     //
-
-    //
-    // Inject #UD if CR4.SMXE is disabled, meaning that GETSEC is disabled.
-    //
-    if (!(GetGuestCr4(VCpu) & (1ULL << 14)))
+    if (g_CheckForFootprints)
     {
         EventInjectUndefinedOpcode(VCpu);
         return;
     }
 
     //
-    // Inject #UD if host has CR4.SMXE cleared to prevent host crash.
-    // Guest should mimic host on startup, I am not sure if guest can ever be set while host is cleared
+    // Inject #UD is the guest does not have CR4.SMXE set.
     //
-    if (!(__readcr4() & (1ULL << 14)))
+    if (!(GetGuestCr4(VCpu) & (1ULL << CR4_SMX_ENABLE_BIT)))
     {
         EventInjectUndefinedOpcode(VCpu);
         return;
     }
 
-    long GetsecLeaf = VCpu->Regs->rax & 0xFFFFFFFF;
+    GetsecLeaf = VCpu->Regs->rax & 0xFFFFFFFF;
     switch (GetsecLeaf)
     {
     case GETSEC_LEAF_CAPABILITES:
     {
         if ((VCpu->Regs->rbx & 0xFFFFFFFF) == 0)
         {
-            long capabilities = AsmGetsecCapabilities();
+            //
+            // verify the host wont #UD when executing GETSEC
+            //
+            if (!(CpuReadCr4() & (1ULL << CR4_SMX_ENABLE_BIT)))
+            {
+                EventInjectUndefinedOpcode(VCpu);
+                return;
+            }
+
+            capabilities = AsmGetsecCapabilities();
             VCpu->Regs->rax &= ~0xFFFFFFFF;
             VCpu->Regs->rax |= capabilities;
         }
@@ -634,7 +651,7 @@ CheckRegistersForException(VIRTUAL_MACHINE_STATE * VCpu)
 }
 
 /**
- * @brief Get the value of the VMCS info register fields
+ * @brief Get the value of the VMCS exit-info register fields
  *
  * @param VCpu The virtual processor's state
  * @param Register index
@@ -683,6 +700,70 @@ GetRegister(VIRTUAL_MACHINE_STATE * VCpu, UINT32 EncodedRegister)
 }
 
 /**
+ * @brief Set the value of the VMCS exit-info register fields
+ *
+ * @param VCpu The virtual processor's state
+ * @param Register index
+ * @param Value to be written to register
+ * @return VOID
+ */
+VOID
+SetRegister(VIRTUAL_MACHINE_STATE * VCpu, UINT32 EncodedRegister, UINT64 Value)
+{
+    switch (EncodedRegister)
+    {
+    case 0:
+        VCpu->Regs->rax = Value;
+        break;
+    case 1:
+        VCpu->Regs->rcx = Value;
+        break;
+    case 2:
+        VCpu->Regs->rdx = Value;
+        break;
+    case 3:
+        VCpu->Regs->rbx = Value;
+        break;
+    case 4:
+        VCpu->Regs->rsp = Value;
+        break;
+    case 5:
+        VCpu->Regs->rbp = Value;
+        break;
+    case 6:
+        VCpu->Regs->rsi = Value;
+        break;
+    case 7:
+        VCpu->Regs->rdi = Value;
+        break;
+    case 8:
+        VCpu->Regs->r8 = Value;
+        break;
+    case 9:
+        VCpu->Regs->r9 = Value;
+        break;
+    case 10:
+        VCpu->Regs->r10 = Value;
+        break;
+    case 11:
+        VCpu->Regs->r11 = Value;
+        break;
+    case 12:
+        VCpu->Regs->r12 = Value;
+        break;
+    case 13:
+        VCpu->Regs->r13 = Value;
+        break;
+    case 14:
+        VCpu->Regs->r14 = Value;
+        break;
+    case 15:
+        VCpu->Regs->r15 = Value;
+        break;
+    }
+}
+
+/**
  * @brief Calculate descriptor address
  *
  * @param Guest VCpu state
@@ -701,7 +782,7 @@ CalculateAddressFromExitInfo(VIRTUAL_MACHINE_STATE * VCpu,
     UINT64               IndexVal = 0;
     UINT32               Scale    = 0;
     UINT64               Offset;
-    VMX_SEGMENT_SELECTOR Seg;
+    VMX_SEGMENT_SELECTOR Segment;
 
     //
     // Check exit info validity bits, and fetch base and index values
@@ -741,22 +822,22 @@ CalculateAddressFromExitInfo(VIRTUAL_MACHINE_STATE * VCpu,
     switch (ExitInfo.SegmentRegister)
     {
     case 0:
-        Seg = GetGuestEs();
+        Segment = GetGuestEs();
         break;
     case 1:
-        Seg = GetGuestCs();
+        Segment = GetGuestCs();
         break;
     case 2:
-        Seg = GetGuestSs();
+        Segment = GetGuestSs();
         break;
     case 3:
-        Seg = GetGuestDs();
+        Segment = GetGuestDs();
         break;
     case 4:
-        Seg = GetGuestFs();
+        Segment = GetGuestFs();
         break;
     case 5:
-        Seg = GetGuestGs();
+        Segment = GetGuestGs();
         break;
     default:
         //
@@ -765,10 +846,10 @@ CalculateAddressFromExitInfo(VIRTUAL_MACHINE_STATE * VCpu,
         return FALSE;
     }
 
-    if (Seg.Attributes.Unusable)
+    if (Segment.Attributes.Unusable)
         return FALSE;
 
-    *Address = Seg.Base + Offset;
+    *Address = Segment.Base + Offset;
     return TRUE;
 }
 
@@ -783,12 +864,10 @@ BOOLEAN
 VmexitFetchAndCheckVmcsPointerAlignment(VIRTUAL_MACHINE_STATE * VCpu, UINT64 * FetchedAddress)
 {
     VMEXIT_INFO ExitInfo = {0};
-    UINT64      Displacement;
     UINT64      Address;
 
     VmxVmread32P(VMCS_VMEXIT_INSTRUCTION_INFO, (UINT32 *)&ExitInfo);
-    VmxVmread64P(VMCS_EXIT_QUALIFICATION, &Displacement);
-    if (!CalculateAddressFromExitInfo(VCpu, ExitInfo, Displacement, &Address))
+    if (!CalculateAddressFromExitInfo(VCpu, ExitInfo, VCpu->ExitQualification, &Address))
     {
         EventInjectUndefinedOpcode(VCpu);
         return FALSE;
@@ -796,7 +875,7 @@ VmexitFetchAndCheckVmcsPointerAlignment(VIRTUAL_MACHINE_STATE * VCpu, UINT64 * F
 
     MemoryMapperReadMemorySafeOnTargetProcess(Address, FetchedAddress, 8);
 
-    if (CheckAccessValidityAndSafety(Address, 8) ||
+    if (CheckAccessValidityAndSafety(*FetchedAddress, 8) ||
         *FetchedAddress % 4096 != 0)
     {
         VMFailWithErrorCode(VMX_ERROR_VMCLEAR_INVALID_PHYSICAL_ADDRESS);
@@ -812,26 +891,6 @@ VmexitFetchAndCheckVmcsPointerAlignment(VIRTUAL_MACHINE_STATE * VCpu, UINT64 * F
         VMFailWithErrorCode(VMX_ERROR_VMCLEAR_INVALID_PHYSICAL_ADDRESS);
         return FALSE;
     }
-
-    return TRUE;
-}
-
-BOOLEAN
-VmexitFetchVMCSField(VIRTUAL_MACHINE_STATE* VCpu, UINT64* FetchedAddress)
-{
-    VMEXIT_INFO ExitInfo = {0};
-    UINT64      Displacement;
-    UINT64      Address;
-
-    VmxVmread32P(VMCS_VMEXIT_INSTRUCTION_INFO, (UINT32 *)&ExitInfo);
-    VmxVmread64P(VMCS_EXIT_QUALIFICATION, &Displacement);
-    if (!CalculateAddressFromExitInfo(VCpu, ExitInfo, Displacement, &Address))
-    {
-        EventInjectUndefinedOpcode(VCpu);
-        return FALSE;
-    }
-
-    MemoryMapperReadMemorySafeOnTargetProcess(Address, FetchedAddress, 8);
 
     return TRUE;
 }

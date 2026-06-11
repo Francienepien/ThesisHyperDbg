@@ -61,7 +61,7 @@
  * and also enters debugger in debugging section to break the debugger in the
  * case of errors
  */
-#define DebugMode TRUE
+#define DebugMode FALSE
 
 /**
  * @brief Enable or disable the instant event mechanism
@@ -77,4 +77,4 @@
 /**
  * @brief Activates the hyperevade project
  */
-#define ActivateHyperEvadeProject FALSE
+#define ActivateHyperEvadeProject TRUE

@@ -72,6 +72,8 @@ TransparentHideDebugger(HYPEREVADE_CALLBACKS *                        Hyperevade
         //
         g_IsLbrSupported = g_Callbacks.HyperTraceLbrIsSupported(&g_LbrCapacity, &g_isArchLbr);
 
+        LogInfo("Transparent found capacity: %d and arch: %d\n", g_LbrCapacity, g_isArchLbr);
+
         //
         // Enable the transparent mode
         //

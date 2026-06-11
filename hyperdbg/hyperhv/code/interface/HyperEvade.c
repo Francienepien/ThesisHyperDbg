@@ -81,6 +81,11 @@ TransparentHideDebuggerWrapper(DEBUGGER_HIDE_AND_TRANSPARENT_DEBUGGER_MODE * Tra
     if (TransparentHideDebugger(&HyperevadeCallbacks, TransparentModeRequest))
     {
         //
+        // Status is set within the transparent mode (hyperevade) module
+        //
+        g_CheckForFootprints = TRUE;
+
+        //
         // Set MSR bitmaps used in transparent mode.
         //
         TransparentSetMSRBitmap();
@@ -90,10 +95,6 @@ TransparentHideDebuggerWrapper(DEBUGGER_HIDE_AND_TRANSPARENT_DEBUGGER_MODE * Tra
         //
         TransparentSetIOBitmap();
 
-        //
-        // Status is set within the transparent mode (hyperevade) module
-        //
-        g_CheckForFootprints = TRUE;
         return TRUE;
     }
     else
@@ -163,8 +164,12 @@ VOID
 TransparentSetMSRBitmap()
 {
     ULONG ProcessorCount;
+    UINT32 capacity;
+    BOOLEAN IsArchLbr;
 
     ProcessorCount = KeQueryActiveProcessorCount(0);
+
+    g_Callbacks.HyperTraceLbrIsSupported(&capacity, &IsArchLbr);
 
     //
     // Enable bitmaps to intercept MSR reads/writes related to LBR and SMI count as they can be used for VM detection
@@ -173,19 +178,19 @@ TransparentSetMSRBitmap()
     for (size_t ProcessorID = 0; ProcessorID < ProcessorCount; ProcessorID++)
     {
         MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], MSR_SMI_COUNT, TRUE, FALSE);
-        MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], MSR_LEGACY_LBR_SELECT, FALSE, TRUE);
-        MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], MSR_LBR_TOS, FALSE, TRUE);
-        MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], IA32_LBR_CTL, FALSE, TRUE);
-        MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], IA32_DEBUGCTL, FALSE, TRUE);
+        MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], MSR_LEGACY_LBR_SELECT, TRUE, TRUE);
+        MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], MSR_LBR_TOS, TRUE, TRUE);
+        MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], IA32_LBR_CTL, TRUE, TRUE);
+        MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], IA32_DEBUGCTL, TRUE, TRUE);
 
         for (size_t BranchIndex = 0; BranchIndex < MAXIMUM_LBR_CAPACITY; BranchIndex++)
         {
-            MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(MSR_LASTBRANCH_0_FROM_IP + BranchIndex), FALSE, TRUE);
-            MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(MSR_LASTBRANCH_0_TO_IP + BranchIndex), FALSE, TRUE);
-            MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(MSR_LASTBRANCH_INFO_0 + BranchIndex), FALSE, TRUE);
-            MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(IA32_LBR_0_FROM_IP + BranchIndex), FALSE, TRUE);
-            MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(IA32_LBR_0_TO_IP + BranchIndex), FALSE, TRUE);
-            MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(IA32_LBR_0_INFO + BranchIndex), FALSE, TRUE);
+            MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(MSR_LASTBRANCH_0_FROM_IP + BranchIndex), TRUE, TRUE);
+            MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(MSR_LASTBRANCH_0_TO_IP + BranchIndex), TRUE, TRUE);
+            MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(MSR_LASTBRANCH_INFO_0 + BranchIndex), TRUE, TRUE);
+            MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(IA32_LBR_0_FROM_IP + BranchIndex), TRUE, TRUE);
+            MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(IA32_LBR_0_TO_IP + BranchIndex), TRUE, TRUE);
+            MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(IA32_LBR_0_INFO + BranchIndex), TRUE, TRUE);
         }
     }
 }
@@ -209,19 +214,19 @@ TransparentUnSetMSRBitmap()
     for (size_t ProcessorID = 0; ProcessorID < ProcessorCount; ProcessorID++)
     {
         MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], MSR_SMI_COUNT, TRUE, FALSE);
-        MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], MSR_LEGACY_LBR_SELECT, FALSE, TRUE);
-        MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], MSR_LBR_TOS, FALSE, TRUE);
-        MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], IA32_LBR_CTL, FALSE, TRUE);
-        MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], IA32_DEBUGCTL, FALSE, TRUE);
+        MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], MSR_LEGACY_LBR_SELECT, TRUE, TRUE);
+        MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], MSR_LBR_TOS, TRUE, TRUE);
+        MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], IA32_LBR_CTL, TRUE, TRUE);
+        MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], IA32_DEBUGCTL, TRUE, TRUE);
 
         for (size_t BranchIndex = 0; BranchIndex < MAXIMUM_LBR_CAPACITY; BranchIndex++)
         {
-            MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(MSR_LASTBRANCH_0_FROM_IP + BranchIndex), FALSE, TRUE);
-            MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(MSR_LASTBRANCH_0_TO_IP + BranchIndex), FALSE, TRUE);
-            MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(MSR_LASTBRANCH_INFO_0 + BranchIndex), FALSE, TRUE);
-            MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(IA32_LBR_0_FROM_IP + BranchIndex), FALSE, TRUE);
-            MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(IA32_LBR_0_TO_IP + BranchIndex), FALSE, TRUE);
-            MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(IA32_LBR_0_INFO + BranchIndex), FALSE, TRUE);
+            MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(MSR_LASTBRANCH_0_FROM_IP + BranchIndex), TRUE, TRUE);
+            MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(MSR_LASTBRANCH_0_TO_IP + BranchIndex), TRUE, TRUE);
+            MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(MSR_LASTBRANCH_INFO_0 + BranchIndex), TRUE, TRUE);
+            MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(IA32_LBR_0_FROM_IP + BranchIndex), TRUE, TRUE);
+            MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(IA32_LBR_0_TO_IP + BranchIndex), TRUE, TRUE);
+            MsrHandleUnSetMsrBitmap(&g_GuestState[ProcessorID], (UINT32)(IA32_LBR_0_INFO + BranchIndex), TRUE, TRUE);
         }
     }
 }

@@ -9,8 +9,10 @@
 #define GETSEC_LEAF_SMCTRL      7
 #define GETSEC_LEAF_WAKEUP      8
 
-typedef struct _VMEXIT_INFO
+typedef union _VMEXIT_INFO
 {
+    struct
+    {
         UINT32 Scaling : 2;
         UINT32 Undefined1 : 5;
         UINT32 AddressSize : 3;
@@ -27,7 +29,25 @@ typedef struct _VMEXIT_INFO
             UINT32 Reg2 : 4;
             UINT32 Undefined3 : 4;
         };
-    
+
+    };
+
+    struct _VMEXIT_INFO_VMREADWRITE
+    {
+        UINT32 Scaling : 2;
+        UINT32 Undefined1 : 1;
+        UINT32 Reg1 : 4;
+        UINT32 AddressSize : 3;
+        UINT32 MemReg : 1;
+        UINT32 Undefined2 : 4;
+        UINT32 SegmentRegister : 3;
+        UINT32 IndexRegister : 4;
+        UINT32 IndexRegisterInvalid : 1;
+        UINT32 BaseRegister : 4;
+        UINT32 BaseRegisterInvalid : 1;
+        UINT32 Reg2 : 4;
+
+    } VmReadWrite;
 } VMEXIT_INFO, *P_VMEXIT_INFO;
 
 extern long inline AsmGetsecCapabilities(void);
@@ -83,6 +103,9 @@ CheckRegistersForException(VIRTUAL_MACHINE_STATE * VCpu);
 UINT64
 GetRegister(VIRTUAL_MACHINE_STATE * VCpu, UINT32 EncodedRegister);
 
+VOID
+SetRegister(VIRTUAL_MACHINE_STATE * VCpu, UINT32 EncodedRegister, UINT64 Value);
+
 BOOLEAN
 CalculateAddressFromExitInfo(VIRTUAL_MACHINE_STATE * VCpu,
                              VMEXIT_INFO             ExitInfo,
@@ -91,6 +114,3 @@ CalculateAddressFromExitInfo(VIRTUAL_MACHINE_STATE * VCpu,
 
 BOOLEAN
 VmexitFetchAndCheckVmcsPointerAlignment(VIRTUAL_MACHINE_STATE * VCpu, UINT64 * FetchedAddress);
-
-BOOLEAN
-VmexitFetchVMCSField(VIRTUAL_MACHINE_STATE * VCpu, UINT64 * FetchedAddress);

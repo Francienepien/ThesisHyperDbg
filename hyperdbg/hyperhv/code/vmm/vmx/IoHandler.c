@@ -95,11 +95,6 @@ IoHandleIoVmExits(VIRTUAL_MACHINE_STATE * VCpu, VMX_EXIT_QUALIFICATION_IO_INSTRU
     switch (IoQualification.DirectionOfAccess)
     {
     case AccessIn:
-        if (g_CheckForFootprints && TransparentCheckAndModifyIO(Port))
-        {
-            return;
-        }
-
         if (IoQualification.StringInstruction)
         {
             switch (Size)
@@ -138,6 +133,10 @@ IoHandleIoVmExits(VIRTUAL_MACHINE_STATE * VCpu, VMX_EXIT_QUALIFICATION_IO_INSTRU
         break;
 
     case AccessOut:
+        if (g_CheckForFootprints && TransparentCheckAndModifyIO(Port))
+        {
+            return;
+        }
         if (IoQualification.StringInstruction)
         {
             switch (Size)

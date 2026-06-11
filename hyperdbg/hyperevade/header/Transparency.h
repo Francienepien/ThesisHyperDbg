@@ -53,6 +53,11 @@ typedef struct _TRANSPARENCY_PROCESS
 
 } TRANSPARENCY_PROCESS, *PTRANSPARENCY_PROCESS;
 
+typedef struct _BRANCH_ENTRY
+{
+    UINT64      last_rip;
+} BRANCH_ENTRY, *PBRANCH_ENTRY;
+
 //////////////////////////////////////////////////
 //				     Globals 	    			//
 //////////////////////////////////////////////////
@@ -69,6 +74,8 @@ BOOLEAN g_IsLbrSupported;
 BOOLEAN g_isArchLbr;
 
 UINT32 g_LbrCapacity;
+
+BRANCH_ENTRY g_LbrEntries[MAXIMUM_LBR_CAPACITY];
 
 //////////////////////////////////////////////////
 //				   Functions					//

@@ -246,9 +246,9 @@ HvHandleControlRegisterAccess(VIRTUAL_MACHINE_STATE *         VCpu,
             if (g_CheckForFootprints)
             {
                 //
-                // Hide CR4.VMXE when in transparent mode.
+                // Hide CR4.VMXE and CR4.VMSE when in transparent mode.
                 //
-                *RegPtr &= ~REG_CR4_VMXE;
+                *RegPtr &= ~(REG_CR4_VMXE | REG_CR4_VMXE);
             }
 
             break;
