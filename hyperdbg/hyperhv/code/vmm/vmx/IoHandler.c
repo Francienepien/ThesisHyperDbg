@@ -133,7 +133,7 @@ IoHandleIoVmExits(VIRTUAL_MACHINE_STATE * VCpu, VMX_EXIT_QUALIFICATION_IO_INSTRU
         break;
 
     case AccessOut:
-        if (g_CheckForFootprints && TransparentCheckAndModifyIO(Port))
+        if (g_CheckForFootprints && TransparentCheckAndModifyIOWrite(Port))
         {
             return;
         }

@@ -82,6 +82,11 @@ TransparentHideDebuggerWrapper(DEBUGGER_HIDE_AND_TRANSPARENT_DEBUGGER_MODE * Tra
     HyperevadeCallbacks.EventInjectGeneralProtection = EventInjectGeneralProtection;
 
     //
+    // Debugging callbacks
+    //
+    HyperevadeCallbacks.DebuggingCallbackCallstackWalkthroughStack = g_Callbacks.DebuggingCallbackCallstackWalkthroughStack;
+
+    //
     // Call the hyperevade hide debugger function
     //
     if (TransparentHideDebugger(&HyperevadeCallbacks, TransparentModeRequest))
@@ -193,7 +198,7 @@ TransparentSetMSRBitmap()
 
     ProcessorCount = KeQueryActiveProcessorCount(0);
 
-    g_Callbacks.HyperTraceLbrIsSupported(&capacity, &IsArchLbr);
+    g_Callbacks.HyperTraceCallbackLbrIsSupported(&capacity, &IsArchLbr);
 
     //
     // Enable bitmaps to intercept MSR reads/writes related to LBR and SMI count as they can be used for VM detection

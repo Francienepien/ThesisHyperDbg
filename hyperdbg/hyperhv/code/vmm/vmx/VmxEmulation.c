@@ -221,7 +221,7 @@ VmxEmulationVmwrite(VIRTUAL_MACHINE_STATE * VCpu)
     FetchedField = GetRegister(VCpu, ExitInfo.VmReadWrite.Reg2);
 
     //
-    // We do not perform the write, as they are likely unrecoverable, and may cause deadlocks.
+    // We do not perform the write, as they are likely unrecoverable, and may cause guest instability.
     // Instead log the attempt to notify the user in case they want to investigate further.
     //
     LogInfo("Guest tried to execute VMWRITE on field: 0x%llx, with value: 0x%llx\n", FetchedField, FieldValue);

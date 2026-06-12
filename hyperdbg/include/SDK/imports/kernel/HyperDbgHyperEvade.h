@@ -46,7 +46,7 @@ IMPORT_EXPORT_HYPEREVADE BOOLEAN
 TransparentCheckAndModifyMsrWrite(PGUEST_REGS Regs, UINT32 TargetMsr);
 
 IMPORT_EXPORT_HYPEREVADE BOOLEAN
-TransparentCheckAndModifyIO(UINT16 Port);
+TransparentCheckAndModifyIOWrite(UINT16 Port);
 
 //
 // Syscall footprint routines

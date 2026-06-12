@@ -100,6 +100,24 @@ typedef VOID (*HV_HANDLE_TRAPFLAG)();
  */
 typedef VOID (*EVENT_INJECT_GENERAL_PROTECTION)();
 
+/**
+ * @brief routine callback to retrieve stacktrace
+ *
+ * @param Pointer to save callstack frames to
+ * @param Amount of frames saved
+ * @param Stack base address
+ * @param Size of the stack
+ * @param Flag indicating if it's a 32-bit process
+ *
+ * @return BOOLEAN
+ */
+typedef BOOLEAN (*DEBUGGING_CALLBACK_CALLSTACK_WALKTHROUGH_STACK)(PDEBUGGER_SINGLE_CALLSTACK_FRAME AddressToSaveFrames,
+                                                                  UINT32 * FrameCount, 
+                                                                  UINT64 StackBaseAddress, 
+                                                                  UINT32 Size,
+                                                                  BOOLEAN Is32Bit);
+
+
 //////////////////////////////////////////////////
 //			   Callback Structure               //
 //////////////////////////////////////////////////
@@ -149,5 +167,10 @@ typedef struct _HYPEREVADE_CALLBACKS
     //
     HV_HANDLE_TRAPFLAG              HvHandleTrapFlag;
     EVENT_INJECT_GENERAL_PROTECTION EventInjectGeneralProtection;
+
+    //
+    // Debugging callbacks
+    //
+    DEBUGGING_CALLBACK_CALLSTACK_WALKTHROUGH_STACK DebuggingCallbackCallstackWalkthroughStack;
 
 } HYPEREVADE_CALLBACKS, *PHYPEREVADE_CALLBACKS;

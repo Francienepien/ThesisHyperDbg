@@ -389,3 +389,54 @@ DisassemblerShowOneInstructionInVmxRootMode(PVOID Address, BOOLEAN Is32Bit)
 
     return DisassemblerShowOneInstructionInVmxNonRootMode(SafeMemoryToRead, (UINT64)Address, Is32Bit);
 }
+
+BOOLEAN
+GenerateLbrEntry(UINT64 CodeBaseVa, UINT8 * GuestCode, UINT64 GuestRip, PLBR_STACK_ENTRY OutEntries, UINT8 * OutCount)
+{
+    UINT8               found     = 0;
+    UINT64              Remaining = 4096;
+    LBR_BRANCH_ENTRY    tmp[32]  = {0};
+    ZydisDecoder        Decoder;
+
+    if (!ZYAN_SUCCESS(ZydisDecoderInit(&Decoder, ZYDIS_MACHINE_MODE_LONG_COMPAT_32, ZYDIS_STACK_WIDTH_32)))
+    {
+        return FALSE;
+    }
+
+    while (Remaining > 0 && CodeBaseVa < GuestRip)
+    {
+        ZydisDecodedInstruction Instr;
+        ZydisDecodedOperand     Operands[ZYDIS_MAX_OPERAND_COUNT];
+
+        if (!ZYAN_SUCCESS(ZydisDecoderDecodeFull(&Decoder, GuestCode, Remaining, &Instr, Operands)))
+            break;
+
+        if (Instr.meta.branch_type != ZYDIS_BRANCH_TYPE_NONE)
+        {
+            UINT64 target = 0;
+            if (ZYAN_SUCCESS(ZydisCalcAbsoluteAddress(&Instr, &Operands[0], CodeBaseVa, &target)))
+            {
+                if (found < 256)
+                {
+                    tmp[found % 32].From = CodeBaseVa;
+                    tmp[found % 32].To   = target;
+                    found++;
+                }
+            }
+        }
+
+        CodeBaseVa += Instr.length;
+        GuestCode += Instr.length;
+        Remaining -= Instr.length;
+    }
+
+    if (found > 0)
+    {
+        PlatformWriteMemory(OutEntries.BranchEntry, &tmp, found * sizeof(LBR_BRANCH_ENTRY));
+        OutEntries.Tos = found % 32;
+        *OutCount = found > 32 ? 32 : (UINT8)found;
+        return TRUE;
+    }
+    
+    return FALSE;
+}

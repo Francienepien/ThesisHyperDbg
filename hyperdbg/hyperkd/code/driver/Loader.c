@@ -212,6 +212,7 @@ LoaderInitVmm(PDEBUGGER_INIT_VMM_PACKET InitVmmPacket)
     VmmCallbacks.DebuggingCallbackCheckThreadInterception        = AttachingCheckThreadInterceptionWithUserDebugger;
     VmmCallbacks.DebuggingCallbackTriggerOnClockAndIpiEvents     = DebuggerCheckProcessOrThreadChange;
     VmmCallbacks.DebuggingCallbackIgnoreHandlingMov2DebugRegs    = KdQueryIgnoreHandlingMov2DebugRegs;
+    VmmCallbacks.DebuggingCallbackCallstackWalkthroughStack      = CallstackWalkthroughStack;
 
     //
     // Fill the pool manager callbacks

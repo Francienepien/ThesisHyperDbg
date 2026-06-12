@@ -117,32 +117,33 @@ TransparentCheckAndModifyMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
         return TRUE;
     }
     case IA32_DEBUGCTL:
-    case MSR_LEGACY_LBR_SELECT:
     case MSR_LBR_TOS:
+    {
+        return TRUE;
+    }
+    case MSR_LEGACY_LBR_SELECT:
     case IA32_LBR_CTL:
     {
-        MsrValue = CpuReadMsr(TargetMsr);
-
-        SaveMsrValueToRegisters(Regs, MsrValue);
+        SaveMsrValueToRegisters(Regs, g_GuestLbrFilter);
 
         return TRUE;
     }
     }
 
-  //if (!g_IsLbrSupported)
-  //{
-  //    return FALSE;
-  //}
-
       if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_FROM_IP, LbrCapacity) ||
           IN_MSR_RANGE(TargetMsr, IA32_LBR_0_TO_IP, LbrCapacity) ||
           IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, LbrCapacity))
       {
-          MsrValue = CpuReadMsr(TargetMsr);
+          DEBUGGER_SINGLE_CALLSTACK_FRAME frames[8] = {0};
+          UINT32                          OutCount = 0;
+          g_Callbacks.DebuggingCallbackCallstackWalkthroughStack(frames, &OutCount, Regs->rsp, 1, FALSE);
 
-          LogInfo("TransparentCheckAndModifyMsrRead reading arch msr: %x, Value: %llx", TargetMsr, MsrValue);
+          for (UINT32 i = 0; i < OutCount; i++)
+          {
+              LogInfo("TransparentCheckAndModifyMsrRead: Callstack frame %d: %p", i, (PVOID)frames[i].Value);
+          }
 
-          SaveMsrValueToRegisters(Regs, MsrValue);
+          // SaveMsrValueToRegisters(Regs, MsrValue);
 
           return TRUE;
       }
@@ -224,7 +225,6 @@ TransparentCheckAndModifyMsrWrite(PGUEST_REGS Regs, UINT32 TargetMsr)
     // }
 
     UINT64            MsrValue;
-    UINT64            DebugCtlValue;
     const UINT32      LbrCapacity = g_LbrCapacity;
 
     if (TargetMsr != 0x400000b1 && TargetMsr != 0x400000b0)
@@ -238,18 +238,13 @@ TransparentCheckAndModifyMsrWrite(PGUEST_REGS Regs, UINT32 TargetMsr)
     {
     case IA32_DEBUGCTL:
     {
-        //
-        // Only allow setting bit 0
-        //
         if (MsrValue & 1)
         {
-            DebugCtlValue = CpuReadMsr(IA32_DEBUGCTL);
-            CpuWriteMsr(IA32_DEBUGCTL, DebugCtlValue |= 1);
+            g_IsGuestLbrEnabled = TRUE;
         }
         else
         {
-            DebugCtlValue = CpuReadMsr(IA32_DEBUGCTL);
-            CpuWriteMsr(IA32_DEBUGCTL, DebugCtlValue & ~1);
+            g_IsGuestLbrEnabled = FALSE;
         }
 
         return TRUE;
@@ -265,34 +260,42 @@ TransparentCheckAndModifyMsrWrite(PGUEST_REGS Regs, UINT32 TargetMsr)
             return TRUE;
         }
 
-        CpuWriteMsr(TargetMsr, MsrValue);
+        g_GuestLbrFilter = MsrValue;
 
         return TRUE;
     }
     case MSR_LBR_TOS:
+    {
+        return TRUE;
+    }
     case IA32_LBR_CTL:
     {
-        LogInfo("TransparentCheckAndModifyMsrWrite writing arch msr lbr ctl or lbr tos: %x, Value: %llx", TargetMsr, MsrValue);
+        if (MsrValue & 1)
+        {
+            g_IsGuestLbrEnabled = TRUE;
+        }
+        else
+        {
+            g_IsGuestLbrEnabled = FALSE;
+        }
 
-        CpuWriteMsr(TargetMsr, MsrValue);
-
-        LogInfo("verify: %llx", CpuReadMsr(IA32_LBR_CTL));
+        //
+        // TODO: add filter support
+        //
+        g_GuestLbrFilter = MsrValue;
 
         return TRUE;
     }
     }
-
-    //if (!g_IsLbrSupported)
-    //{
-    //    return FALSE;
-    //}
 
 
         if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_FROM_IP, LbrCapacity) ||
             IN_MSR_RANGE(TargetMsr, IA32_LBR_0_TO_IP, LbrCapacity) ||
             IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, LbrCapacity))
         {
-            CpuWriteMsr(TargetMsr, MsrValue);
+            //
+            // TODO: LBR MSRs can be written to in order to store an arbitrary value
+            //
 
             return TRUE;
         }
@@ -314,7 +317,9 @@ TransparentCheckAndModifyMsrWrite(PGUEST_REGS Regs, UINT32 TargetMsr)
             IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_TO_IP, LbrCapacity) ||
             IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_INFO_0, LbrCapacity))
         {
-            CpuWriteMsr(TargetMsr, MsrValue);
+            //
+            // TODO: LBR MSRs can be written to in order to store an arbitrary value
+            //
 
             return TRUE;
         }
@@ -353,10 +358,16 @@ TransparentCheckAndTrapFlagAfterVmexit()
     g_Callbacks.HvHandleTrapFlag();
 }
 
+/**
+ * @brief Handle I/O write access VM exits when the Transparent mode is enabled
+ *
+ * @param Port that is being written to
+ *
+ * @return BOOLEAN Whether the emulation should be further continued or not
+ */
 BOOLEAN
-TransparentCheckAndModifyIO(UINT16 Port)
+TransparentCheckAndModifyIOWrite(UINT16 Port)
 {
-    LogInfo("TransparentCheckAndModifyIO: Port = %x", Port);
     switch(Port) 
     {
         case 0xB2 :

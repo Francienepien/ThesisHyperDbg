@@ -98,6 +98,22 @@ typedef BOOLEAN (*DEBUGGING_CALLBACK_TRIGGER_ON_CLOCK_AND_IPI_EVENTS)(_In_ UINT3
 typedef BOOLEAN (*DEBUGGING_CALLBACK_IGNORE_HANDLING_MOV_2_DEBUG_REGS)(_In_ UINT32 CoreId);
 
 /**
+ * @brief routine callback to retrieve stacktrace
+ *
+ * @param Pointer to save callstack frames to
+ * @param Amount of frames saved
+ * @param Stack base address
+ * @param Size of the stack
+ * @param Flag indicating if it's a 32-bit process
+ *
+ * @return BOOLEAN
+ */
+typedef BOOLEAN (*DEBUGGING_CALLBACK_CALLSTACK_WALKTHROUGH_STACK)(PDEBUGGER_SINGLE_CALLSTACK_FRAME AddressToSaveFrames,
+                                                                  UINT32 *                         FrameCount,
+                                                                  UINT64                      StackBaseAddress,
+                                                                  UINT32                      Size,
+                                                                  BOOLEAN                     Is32Bit);
+/**
  * @brief Request pool allocation
  *
  */
@@ -213,6 +229,7 @@ typedef struct _VMM_CALLBACKS
     DEBUGGING_CALLBACK_CHECK_THREAD_INTERCEPTION         DebuggingCallbackCheckThreadInterception;
     DEBUGGING_CALLBACK_TRIGGER_ON_CLOCK_AND_IPI_EVENTS   DebuggingCallbackTriggerOnClockAndIpiEvents;
     DEBUGGING_CALLBACK_IGNORE_HANDLING_MOV_2_DEBUG_REGS  DebuggingCallbackIgnoreHandlingMov2DebugRegs;
+    DEBUGGING_CALLBACK_CALLSTACK_WALKTHROUGH_STACK       DebuggingCallbackCallstackWalkthroughStack;
 
     //
     // Pool manager callbacks
