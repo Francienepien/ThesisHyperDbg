@@ -62,7 +62,7 @@ TransparentCheckAndModifyCpuid(PGUEST_REGS Regs, INT32 CpuInfo[])
  * @return BOOLEAN Whether the emulation should be further continued or not
  */
 BOOLEAN
-TransparentCheckAndModifyMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
+TransparentCheckAndModifyMsrRead(PGUEST_REGS Regs, UINT64 Rip, UINT32 TargetMsr)
 {
     if ((g_TransparentEvadeMask & TRANSPARENT_EVADE_MASK_MSR) == 0)
     {
@@ -130,23 +130,146 @@ TransparentCheckAndModifyMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
     }
     }
 
-      if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_FROM_IP, LbrCapacity) ||
-          IN_MSR_RANGE(TargetMsr, IA32_LBR_0_TO_IP, LbrCapacity) ||
-          IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, LbrCapacity))
-      {
-          DEBUGGER_SINGLE_CALLSTACK_FRAME frames[8] = {0};
-          UINT32                          OutCount = 0;
-          g_Callbacks.DebuggingCallbackCallstackWalkthroughStack(frames, &OutCount, Regs->rsp, 1, FALSE);
+    if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_FROM_IP, LbrCapacity))
+    {
+        PDEBUGGER_SINGLE_CALLSTACK_FRAME frames = (PDEBUGGER_SINGLE_CALLSTACK_FRAME)ExAllocatePoolWithTag(
+            NonPagedPool,
+            1024 * sizeof(DEBUGGER_SINGLE_CALLSTACK_FRAME),
+            'frms');
+        if (!frames)
+        {
+            return TRUE;
+        }
+        RtlZeroMemory(frames, 1024 * sizeof(DEBUGGER_SINGLE_CALLSTACK_FRAME));
+            UINT32                          OutCount     = 0;
+            if (!g_Callbacks.DebuggingCallbackCallstackWalkthroughStack(frames, &OutCount, Regs->rsp, PAGE_SIZE * 2, FALSE))
+            {
+                LogInfo("Something is going wrong in the stack walk.\n");
+                return TRUE;
+            }
 
-          for (UINT32 i = 0; i < OutCount; i++)
-          {
-              LogInfo("TransparentCheckAndModifyMsrRead: Callstack frame %d: %p", i, (PVOID)frames[i].Value);
-          }
+            for (UINT32 i = 0; i < OutCount; i++)
+            {
+                if (frames[i].IsValidAddress && frames[i].IsExecutable)
+                {
+                    LBR_STACK_ENTRY entry  = {0};
+                    VOID *           buffer = ExAllocatePoolWithTag(NonPagedPool, 4096, 'lbrs');
+                    if (!buffer)
+                    {
+                        ExFreePoolWithTag(frames, 'frms');
+                        return TRUE;
+                    }
+                    g_Callbacks.MemoryMapperReadMemorySafeOnTargetProcess(frames[i].Value, buffer, 4096);
+                    if (!g_Callbacks.CallbackGenerateLbrEntry(frames[i].Value, buffer, Rip, &entry))
+                    {
+                        LogInfo("ATTEMPTING NEXT FRAME\n");
+                        continue;
+                    }
+                    LogInfo("Saving LBR From: %llx\n", entry.BranchEntry[entry.Tos].From);
+                    SaveMsrValueToRegisters(Regs, entry.BranchEntry[entry.Tos].From);
+                    ExFreePoolWithTag(frames, 'frms');
+                    ExFreePoolWithTag(buffer, 'lbrs');
+                    return TRUE;
+                }
+            }
 
-          // SaveMsrValueToRegisters(Regs, MsrValue);
+            // SaveMsrValueToRegisters(Regs, MsrValue);
 
-          return TRUE;
-      }
+            return TRUE;
+    }
+    else if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_TO_IP, LbrCapacity))
+    {
+        PDEBUGGER_SINGLE_CALLSTACK_FRAME frames = (PDEBUGGER_SINGLE_CALLSTACK_FRAME)ExAllocatePoolWithTag(
+            NonPagedPool,
+            1024 * sizeof(DEBUGGER_SINGLE_CALLSTACK_FRAME),
+            'frms');
+        if (!frames)
+        {
+            return TRUE;
+        }
+        RtlZeroMemory(frames, 1024 * sizeof(DEBUGGER_SINGLE_CALLSTACK_FRAME));
+            UINT32                          OutCount     = 0;
+            if (!g_Callbacks.DebuggingCallbackCallstackWalkthroughStack(frames, &OutCount, Regs->rsp, PAGE_SIZE * 2, FALSE))
+            {
+                LogInfo("Something is going wrong in the stack walk.\n");
+                return TRUE;
+            }
+
+            for (UINT32 i = 0; i < OutCount; i++)
+            {
+                if (frames[i].IsValidAddress && frames[i].IsExecutable)
+                {
+                    LBR_STACK_ENTRY entry  = {0};
+                    VOID *           buffer = ExAllocatePoolWithTag(NonPagedPool, 4096, 'lbrs');
+                    if (!buffer)
+                    {
+                        ExFreePoolWithTag(frames, 'frms');
+                        return TRUE;
+                    }
+                    g_Callbacks.MemoryMapperReadMemorySafeOnTargetProcess(frames[i].Value, buffer, 4096);
+                    if (!g_Callbacks.CallbackGenerateLbrEntry(frames[i].Value, buffer, Rip, &entry))
+                    {
+                        LogInfo("ATTEMPTING NEXT FRAME\n");
+                        continue;
+                    }
+                    LogInfo("Saving LBR To: %llx\n", entry.BranchEntry[entry.Tos].To);
+                    SaveMsrValueToRegisters(Regs, entry.BranchEntry[entry.Tos].To);
+                    ExFreePoolWithTag(frames, 'frms');
+                    ExFreePoolWithTag(buffer, 'lbrs');
+                    return TRUE;
+                }
+            }
+
+            // SaveMsrValueToRegisters(Regs, MsrValue);
+
+            return TRUE;
+    }
+    else if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, LbrCapacity))
+    {
+        PDEBUGGER_SINGLE_CALLSTACK_FRAME frames = (PDEBUGGER_SINGLE_CALLSTACK_FRAME)ExAllocatePoolWithTag(
+            NonPagedPool,
+            1024 * sizeof(DEBUGGER_SINGLE_CALLSTACK_FRAME),
+            'frms');
+        if (!frames)
+        {
+            return TRUE;
+        }
+        RtlZeroMemory(frames, 1024 * sizeof(DEBUGGER_SINGLE_CALLSTACK_FRAME));
+        UINT32                          OutCount     = 0;
+        if (!g_Callbacks.DebuggingCallbackCallstackWalkthroughStack(frames, &OutCount, Regs->rsp, PAGE_SIZE * 2, FALSE))
+        {
+            LogInfo("Something is going wrong in the stack walk.\n");
+            return TRUE;
+        }
+
+
+        for (UINT32 i = 0; i < OutCount; i++)
+        {
+            if (frames[i].IsValidAddress && frames[i].IsExecutable)
+            {
+                LBR_STACK_ENTRY entry  = {0};
+                VOID *           buffer = ExAllocatePoolWithTag(NonPagedPool, 4096, 'lbrs');
+                if (!buffer)
+                {
+                    ExFreePoolWithTag(frames, 'frms');
+                    return TRUE;
+                }
+                g_Callbacks.MemoryMapperReadMemorySafeOnTargetProcess(frames[i].Value, buffer, 4096);
+                if (!g_Callbacks.CallbackGenerateLbrEntry(frames[i].Value, buffer, Rip, &entry))
+                {
+                    LogInfo("ATTEMPTING NEXT FRAME\n");
+                    continue;
+                }
+                LogInfo("Saving LBR info: %llx\n", entry.LastBranchInfo[entry.Tos].AsUInt);
+                SaveMsrValueToRegisters(Regs, entry.LastBranchInfo[entry.Tos].AsUInt);
+                ExFreePoolWithTag(frames, 'frms');
+                ExFreePoolWithTag(buffer, 'lbrs');
+                return TRUE;
+            }
+        }
+
+        return TRUE;
+    }
       if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_FROM_IP, MAXIMUM_LBR_CAPACITY) ||
           IN_MSR_RANGE(TargetMsr, IA32_LBR_0_TO_IP, MAXIMUM_LBR_CAPACITY) ||
           IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, MAXIMUM_LBR_CAPACITY))

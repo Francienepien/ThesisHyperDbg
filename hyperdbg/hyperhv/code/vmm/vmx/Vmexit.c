@@ -75,8 +75,8 @@ VmxVmexitHandler(_Inout_ PGUEST_REGS GuestRegs)
     //
     // Debugging purpose
     //
-    // LogInfo("VM_EXIT_REASON : 0x%x", ExitReason);
-    // LogInfo("VMCS_EXIT_QUALIFICATION : 0x%llx", VCpu->ExitQualification);
+    //LogInfo("VM_EXIT_REASON : 0x%x", ExitReason);
+    //LogInfo("VMCS_EXIT_QUALIFICATION : 0x%llx", VCpu->ExitQualification);
     //
 
     switch (ExitReason)

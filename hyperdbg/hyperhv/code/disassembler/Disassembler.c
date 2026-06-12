@@ -391,19 +391,20 @@ DisassemblerShowOneInstructionInVmxRootMode(PVOID Address, BOOLEAN Is32Bit)
 }
 
 BOOLEAN
-GenerateLbrEntry(UINT64 CodeBaseVa, UINT8 * GuestCode, UINT64 GuestRip, PLBR_STACK_ENTRY OutEntries, UINT8 * OutCount)
+GenerateLbrEntry(UINT64 CodeBaseVa, UINT8 * GuestCode, UINT64 GuestRip, PLBR_STACK_ENTRY OutEntries)
 {
+    UNREFERENCED_PARAMETER(GuestRip);
+
     UINT8               found     = 0;
     UINT64              Remaining = 4096;
-    LBR_BRANCH_ENTRY    tmp[32]  = {0};
     ZydisDecoder        Decoder;
 
-    if (!ZYAN_SUCCESS(ZydisDecoderInit(&Decoder, ZYDIS_MACHINE_MODE_LONG_COMPAT_32, ZYDIS_STACK_WIDTH_32)))
+    if (!ZYAN_SUCCESS(ZydisDecoderInit(&Decoder, ZYDIS_MACHINE_MODE_LONG_64, ZYDIS_STACK_WIDTH_64)))
     {
         return FALSE;
     }
 
-    while (Remaining > 0 && CodeBaseVa < GuestRip)
+    while (Remaining > 0) // && CodeBaseVa < GuestRip)
     {
         ZydisDecodedInstruction Instr;
         ZydisDecodedOperand     Operands[ZYDIS_MAX_OPERAND_COUNT];
@@ -418,9 +419,13 @@ GenerateLbrEntry(UINT64 CodeBaseVa, UINT8 * GuestCode, UINT64 GuestRip, PLBR_STA
             {
                 if (found < 256)
                 {
-                    tmp[found % 32].From = CodeBaseVa;
-                    tmp[found % 32].To   = target;
-                    found++;
+                    if (target != 0)
+                    {
+                        OutEntries->BranchEntry[found % 32].From      = CodeBaseVa;
+                        OutEntries->BranchEntry[found % 32].To        = target;
+                        OutEntries->LastBranchInfo[found % 32].AsUInt = 0xD00BEED00;
+                        found++;
+                    }
                 }
             }
         }
@@ -432,9 +437,7 @@ GenerateLbrEntry(UINT64 CodeBaseVa, UINT8 * GuestCode, UINT64 GuestRip, PLBR_STA
 
     if (found > 0)
     {
-        PlatformWriteMemory(OutEntries.BranchEntry, &tmp, found * sizeof(LBR_BRANCH_ENTRY));
-        OutEntries.Tos = found % 32;
-        *OutCount = found > 32 ? 32 : (UINT8)found;
+        OutEntries->Tos = (found - 1) % 32;
         return TRUE;
     }
     

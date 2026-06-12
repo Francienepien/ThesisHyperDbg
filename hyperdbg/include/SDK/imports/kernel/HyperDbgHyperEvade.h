@@ -40,7 +40,7 @@ IMPORT_EXPORT_HYPEREVADE VOID
 TransparentCheckAndTrapFlagAfterVmexit();
 
 IMPORT_EXPORT_HYPEREVADE BOOLEAN
-TransparentCheckAndModifyMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr);
+TransparentCheckAndModifyMsrRead(PGUEST_REGS Regs, UINT64 Rip, UINT32 TargetMsr);
 
 IMPORT_EXPORT_HYPEREVADE BOOLEAN
 TransparentCheckAndModifyMsrWrite(PGUEST_REGS Regs, UINT32 TargetMsr);

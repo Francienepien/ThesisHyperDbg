@@ -80,6 +80,7 @@ TransparentHideDebuggerWrapper(DEBUGGER_HIDE_AND_TRANSPARENT_DEBUGGER_MODE * Tra
     //
     HyperevadeCallbacks.HvHandleTrapFlag             = HvHandleTrapFlag;
     HyperevadeCallbacks.EventInjectGeneralProtection = EventInjectGeneralProtection;
+    HyperevadeCallbacks.CallbackGenerateLbrEntry = GenerateLbrEntry;
 
     //
     // Debugging callbacks

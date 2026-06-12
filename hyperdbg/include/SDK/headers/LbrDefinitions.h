@@ -176,7 +176,7 @@ typedef struct _LBR_BRANCH_ENTRY
     ULONGLONG From;
     ULONGLONG To;
 
-} LBR_BRANCH_ENTRY, PLBR_BRANCH_ENTRY;
+} LBR_BRANCH_ENTRY, *PLBR_BRANCH_ENTRY;
 
 /**
  * @brief The structure to hold the LBR stack for a single processor core, including the branch entries and the TOS index
@@ -188,4 +188,4 @@ typedef struct _LBR_STACK_ENTRY
     MSR_LBR_INFO     LastBranchInfo[MAXIMUM_LBR_CAPACITY];
     UINT8            Tos;
 
-} LBR_STACK_ENTRY, PLBR_STACK_ENTRY;
+} LBR_STACK_ENTRY, *PLBR_STACK_ENTRY;
