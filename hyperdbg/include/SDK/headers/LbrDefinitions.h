@@ -100,6 +100,17 @@
 
 #define LBR_BR_TYPE_NAME_MAX_LEN 16 /* longest string is "CALL Indirect\0" = 14 chars, rounded up */
 
+/**
+ * @brief Branch Type Encodings used for normalized filter in HyperEvade
+ */
+#define LBR_HYPEREVADE_FILTER_JCC           (1 << 0)
+#define LBR_HYPEREVADE_FILTER_NEAR_REL_CALL (1 << 1)
+#define LBR_HYPEREVADE_FILTER_NEAR_IND_CALL (1 << 2)
+#define LBR_HYPEREVADE_FILTER_NEAR_RET      (1 << 3)
+#define LBR_HYPEREVADE_FILTER_NEAR_IND_JMP  (1 << 4)
+#define LBR_HYPEREVADE_FILTER_NEAR_REL_JMP  (1 << 5)
+#define LBR_HYPEREVADE_FILTER_FAR_BRANCH    (1 << 6)
+
 //////////////////////////////////////////////////
 //               MSR Structures                 //
 //////////////////////////////////////////////////

@@ -14,33 +14,7 @@
 //			    	  Constants	    			//
 //////////////////////////////////////////////////
 
-//
-// Legacy LBR MSRs
-//
-#ifndef MSR_LEGACY_LBR_SELECT
-#    define MSR_LEGACY_LBR_SELECT 0x000001C8 // originally defined in SDK to be used by other module like HyperHV
-#endif                                       // !MSR_LEGACY_LBR_SELECT
-#define MSR_LBR_TOS               0x000001C9
-#define MSR_LASTBRANCH_0_FROM_IP  0x00000680
-#define MSR_LASTBRANCH_0_TO_IP    0x000006C0
-#define MSR_LASTBRANCH_INFO_0     0x00000DC0
-#define LBR_SELECT_WITHOUT_FILTER 0x00000000
-
-//
-// Arch LBR MSRs
-//
-#define IA32_LBR_0_FROM_IP 0x1500
-#define IA32_LBR_0_TO_IP   0x1600
-#define IA32_LBR_0_INFO    0x1200
-
 #define CPUID_ARCH_LAST_BRANCH_RECORD_INFORMATION 0x1c
-
-//
-// This MSR could be used as an alternative to MSR_LBR_SELECT and IA32_DEBUGCTL for enabling and configuring LBR
-// For using that in hypervisor Load Guest IA32_LBR_CTL Entry Control and Clear IA32_LBR_CTL Exit Control should
-// be configured, plus host could control it over Guest IA32_LBR_CTL on VMCS
-//
-#define IA32_LBR_CTL 0x000014CE
 
 //////////////////////////////////////////////////
 //               CPUID Structures               //

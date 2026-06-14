@@ -21,4 +21,7 @@
 //
 
 BOOLEAN
-GenerateLbrEntry(UINT64 CodeBaseVa, UINT8 * GuestCode, UINT64 GuestRip, PLBR_STACK_ENTRY OutEntries);
+DisassemblerFindGuestBranch(UINT64 CodeBaseVa, UINT8 * GuestCode, PLBR_STACK_ENTRY OutEntries, UINT32 Filter);
+
+BOOLEAN
+DissassemblerLbrFilterAllows(UINT32 Filter, ZydisDecodedInstruction * Instr, ZydisDecodedOperand * Operands);

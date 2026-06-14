@@ -115,7 +115,7 @@ LbrCheckAndReadArchitecturalLbrDetails()
         //
         g_ArchBasedLastBranchRecord = FALSE;
 
-        // return FALSE;
+        return FALSE;
     }
 
     //
@@ -189,6 +189,7 @@ LbrCheckAndReadLegacyLbrDetails()
     {
         if (Model == CPU_LBR_MAPS[i].Model)
         {
+            LogInfo("Found LBR capacity for model %lu\n", Model);
             g_LbrCapacity = CPU_LBR_MAPS[i].LbrCapacity;
             break;
         }

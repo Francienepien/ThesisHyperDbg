@@ -100,10 +100,10 @@ typedef VOID (*HV_HANDLE_TRAPFLAG)();
  */
 typedef VOID (*EVENT_INJECT_GENERAL_PROTECTION)();
 
-typedef BOOLEAN (*CALLBACK_GENERATE_LBR_ENTRY)(UINT64 CodeBaseVa, 
-                                               UINT8 * GuestCode, 
-                                               UINT64 GuestRip, 
-                                               PLBR_STACK_ENTRY OutEntries);
+typedef BOOLEAN (*CALLBACK_DISASSEMBLER_FIND_GUEST_BRANCH)(UINT64 CodeBaseVa, 
+                                                           UINT8 * GuestCode, 
+                                                           PLBR_STACK_ENTRY OutEntries, 
+                                                           UINT32 Filter);
 
 /**
  * @brief routine callback to retrieve stacktrace
@@ -172,7 +172,7 @@ typedef struct _HYPEREVADE_CALLBACKS
     //
     HV_HANDLE_TRAPFLAG              HvHandleTrapFlag;
     EVENT_INJECT_GENERAL_PROTECTION EventInjectGeneralProtection;
-    CALLBACK_GENERATE_LBR_ENTRY     CallbackGenerateLbrEntry;
+    CALLBACK_DISASSEMBLER_FIND_GUEST_BRANCH     CallbackDisassemblerFindGuestBranch;
 
     //
     // Debugging callbacks

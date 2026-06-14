@@ -78,6 +78,7 @@
 //
 // Transparency and footprints headers
 //
+#include "LbrFootprints.h"
 #include "Transparency.h"
 #include "VmxFootprints.h"
 #include "SyscallFootprints.h"

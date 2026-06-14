@@ -391,10 +391,8 @@ DisassemblerShowOneInstructionInVmxRootMode(PVOID Address, BOOLEAN Is32Bit)
 }
 
 BOOLEAN
-GenerateLbrEntry(UINT64 CodeBaseVa, UINT8 * GuestCode, UINT64 GuestRip, PLBR_STACK_ENTRY OutEntries)
+DisassemblerFindGuestBranch(UINT64 CodeBaseVa, UINT8 * GuestCode, PLBR_STACK_ENTRY OutEntries, UINT32 Filter)
 {
-    UNREFERENCED_PARAMETER(GuestRip);
-
     UINT8               found     = 0;
     UINT64              Remaining = 4096;
     ZydisDecoder        Decoder;
@@ -404,7 +402,7 @@ GenerateLbrEntry(UINT64 CodeBaseVa, UINT8 * GuestCode, UINT64 GuestRip, PLBR_STA
         return FALSE;
     }
 
-    while (Remaining > 0) // && CodeBaseVa < GuestRip)
+    while (Remaining > 0)
     {
         ZydisDecodedInstruction Instr;
         ZydisDecodedOperand     Operands[ZYDIS_MAX_OPERAND_COUNT];
@@ -412,7 +410,8 @@ GenerateLbrEntry(UINT64 CodeBaseVa, UINT8 * GuestCode, UINT64 GuestRip, PLBR_STA
         if (!ZYAN_SUCCESS(ZydisDecoderDecodeFull(&Decoder, GuestCode, Remaining, &Instr, Operands)))
             break;
 
-        if (Instr.meta.branch_type != ZYDIS_BRANCH_TYPE_NONE)
+        if (Instr.meta.branch_type != ZYDIS_BRANCH_TYPE_NONE &&
+            DissassemblerLbrFilterAllows(Filter, &Instr, Operands))
         {
             UINT64 target = 0;
             if (ZYAN_SUCCESS(ZydisCalcAbsoluteAddress(&Instr, &Operands[0], CodeBaseVa, &target)))
@@ -423,7 +422,7 @@ GenerateLbrEntry(UINT64 CodeBaseVa, UINT8 * GuestCode, UINT64 GuestRip, PLBR_STA
                     {
                         OutEntries->BranchEntry[found % 32].From      = CodeBaseVa;
                         OutEntries->BranchEntry[found % 32].To        = target;
-                        OutEntries->LastBranchInfo[found % 32].AsUInt = 0xD00BEED00;
+                        OutEntries->LastBranchInfo[found % 32].AsUInt     = 0xD00BEED00;
                         found++;
                     }
                 }
@@ -442,4 +441,39 @@ GenerateLbrEntry(UINT64 CodeBaseVa, UINT8 * GuestCode, UINT64 GuestRip, PLBR_STA
     }
     
     return FALSE;
+}
+
+BOOLEAN
+DissassemblerLbrFilterAllows(UINT32 Filter, ZydisDecodedInstruction * Instr, ZydisDecodedOperand * Operands)
+{
+    if (Filter == 0xFFFFFFFF)
+        return TRUE;
+
+    ZydisMnemonic m = Instr->mnemonic;
+
+    if (m == ZYDIS_MNEMONIC_CALL)
+    {
+        if (Operands[0].type == ZYDIS_OPERAND_TYPE_IMMEDIATE)
+            return Filter & LBR_HYPEREVADE_FILTER_NEAR_REL_CALL;
+        else
+            return Filter & LBR_HYPEREVADE_FILTER_NEAR_IND_CALL;
+    }
+
+    if (m == ZYDIS_MNEMONIC_RET)
+        return Filter & LBR_HYPEREVADE_FILTER_NEAR_RET;
+
+    if (m == ZYDIS_MNEMONIC_JMP)
+    {
+        if (Instr->meta.branch_type == ZYDIS_BRANCH_TYPE_FAR)
+            return Filter & LBR_HYPEREVADE_FILTER_FAR_BRANCH;
+        if (Operands[0].type == ZYDIS_OPERAND_TYPE_IMMEDIATE)
+            return Filter & LBR_HYPEREVADE_FILTER_NEAR_REL_JMP;
+        else
+            return Filter & LBR_HYPEREVADE_FILTER_NEAR_IND_JMP;
+    }
+
+    if (Instr->meta.branch_type != ZYDIS_BRANCH_TYPE_NONE)
+        return Filter & LBR_HYPEREVADE_FILTER_JCC;
+
+    return TRUE;
 }

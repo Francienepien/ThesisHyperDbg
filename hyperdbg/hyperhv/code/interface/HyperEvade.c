@@ -80,7 +80,7 @@ TransparentHideDebuggerWrapper(DEBUGGER_HIDE_AND_TRANSPARENT_DEBUGGER_MODE * Tra
     //
     HyperevadeCallbacks.HvHandleTrapFlag             = HvHandleTrapFlag;
     HyperevadeCallbacks.EventInjectGeneralProtection = EventInjectGeneralProtection;
-    HyperevadeCallbacks.CallbackGenerateLbrEntry = GenerateLbrEntry;
+    HyperevadeCallbacks.CallbackDisassemblerFindGuestBranch = DisassemblerFindGuestBranch;
 
     //
     // Debugging callbacks
@@ -194,16 +194,11 @@ VOID
 TransparentSetMSRBitmap()
 {
     ULONG ProcessorCount;
-    UINT32 capacity;
-    BOOLEAN IsArchLbr;
 
     ProcessorCount = KeQueryActiveProcessorCount(0);
 
-    g_Callbacks.HyperTraceCallbackLbrIsSupported(&capacity, &IsArchLbr);
-
     //
     // Enable bitmaps to intercept MSR reads/writes related to LBR and SMI count as they can be used for VM detection
-    // Only intercept writes to save on performance.
     //
     for (size_t ProcessorID = 0; ProcessorID < ProcessorCount; ProcessorID++)
     {
@@ -239,7 +234,6 @@ TransparentUnSetMSRBitmap()
     
     //
     // Enable bitmaps to intercept MSR reads/writes related to LBR and SMI count as they can be used for VM detection
-    // LBR MSRs support r/w access, so we should intercept both. SMI count is read-only.
     //
     for (size_t ProcessorID = 0; ProcessorID < ProcessorCount; ProcessorID++)
     {

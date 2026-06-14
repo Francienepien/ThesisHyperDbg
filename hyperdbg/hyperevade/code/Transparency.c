@@ -84,9 +84,18 @@ TransparentHideDebugger(HYPEREVADE_CALLBACKS *                        Hyperevade
         //
         // Store LBR info
         //
-        g_IsLbrSupported = g_Callbacks.HyperTraceLbrIsSupported(&g_LbrCapacity, &g_isArchLbr);
-
-        LogInfo("Transparent found capacity: %d and arch: %d\n", g_LbrCapacity, g_isArchLbr);
+        if (!g_Callbacks.HyperTraceLbrIsSupported(&g_LbrCapacity, &g_isArchLbr))
+        {
+            //
+            // We cannot reliably detect arch LBR in remote guests.
+            // So when we lack support, we test whether the CPU is new enough to confidently support Arch LBR.
+            //
+            if (IsCpu12thGenerationOrOlder())
+            {
+                g_isArchLbr   = TRUE;
+                g_LbrCapacity = MAXIMUM_LBR_CAPACITY;
+            }
+        }
 
         //
         // Enable the transparent mode
@@ -235,6 +244,35 @@ TransparentAddNameOrProcessIdToTheList(PDEBUGGER_HIDE_AND_TRANSPARENT_DEBUGGER_M
     // InsertHeadList(&g_TransparentModeMeasurements->ProcessList, &(PidAndNameBuffer->OtherProcesses));
 
     return TRUE;
+}
+
+BOOLEAN
+IsCpu12thGenerationOrOlder()
+{
+    INT32 CpuInfo[4] = {0};
+    UINT32 Model;
+    //
+    // Get the CPU family and model information
+    //
+    CpuCpuId(CpuInfo, 1);
+    //
+    // Check if the CPU is 12th generation or older based on the family and model numbers
+    //
+    Model  = ((CpuInfo[0] >> 4) & 0xF) | ((CpuInfo[0] >> 12) & 0xF0);
+
+    switch (Model)
+    {
+    case 0xB7: // Raptor Lake (13th gen)
+    case 0xBA: // Raptor Lake-P (13th gen)
+    case 0xBF: // Raptor Lake-S (13th gen)
+    case 0xAA: // Meteor Lake (14th gen)
+    case 0xAB: // Meteor Lake-P (14th gen)
+    case 0xC5: // Arrow Lake (15th gen)
+    case 0xBD: // Lunar Lake
+        return TRUE;
+    }
+
+    return FALSE;
 }
 
 //

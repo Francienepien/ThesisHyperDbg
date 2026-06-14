@@ -186,7 +186,7 @@ MsrHandleRdmsrVmexit(VIRTUAL_MACHINE_STATE * VCpu)
             //
             // Check for the footprints of the RDMSR in the transparent mode
             //
-            if (g_CheckForFootprints && TransparentCheckAndModifyMsrRead(VCpu->Regs, VCpu->LastVmexitRip, TargetMsr))
+            if (g_CheckForFootprints && TransparentCheckAndModifyMsrRead(VCpu->Regs, TargetMsr))
             {
                 return;
             }

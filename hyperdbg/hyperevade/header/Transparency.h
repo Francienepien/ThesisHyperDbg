@@ -73,13 +73,11 @@ UINT32 g_TransparentEvadeMask;
 
 BOOLEAN g_IsGuestLbrEnabled;
 
-BOOLEAN g_IsLbrSupported;
-
 BOOLEAN g_isArchLbr;
 
 UINT32 g_LbrCapacity;
 
-UINT64 g_GuestLbrFilter;
+GUEST_LBR_FILTER g_GuestLbrFilter;
 
 //////////////////////////////////////////////////
 //				   Functions					//
@@ -87,3 +85,6 @@ UINT64 g_GuestLbrFilter;
 
 UINT32
 TransparentGetRand();
+
+BOOLEAN
+IsCpu12thGenerationOrOlder();

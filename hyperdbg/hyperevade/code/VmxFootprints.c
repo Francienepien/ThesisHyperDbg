@@ -43,13 +43,19 @@ TransparentCheckAndModifyCpuid(PGUEST_REGS Regs, INT32 CpuInfo[])
         //
         CpuInfo[0] = CpuInfo[1] = CpuInfo[2] = CpuInfo[3] = 0x40000000;
     }
-    else if (Regs->rax == CPUID_STRUCTURED_EXTENDED_FEATURE_FLAGS && Regs->rcx == 0)
+    else if (Regs->rax == CPUID_STRUCTURED_EXTENDED_FEATURE_FLAGS && Regs->rcx == 0 && g_isArchLbr)
     {
-        // LogInfo("TransparentCheckAndModifyCpuid: CPUID.07H.00H ArchLBR bit: %d", (CpuInfo[3] >> 19) & 1);
+        //
+        // Report Arch LBR support in CPUID.07H.00H ECX[bit 19] when the Transparent mode is enabled
+        //
+        CpuInfo[3] |= (1 << 19);
     }
-    else if (Regs->rax == 0x1c)
+    else if (Regs->rax == 0x1c && g_isArchLbr)
     {
-        // LogInfo("TransparentCheckAndModifyCpuid: CPUID.1CH.00H ArchLBR depth mask: 0x%02X", CpuInfo[0] & 0xFF);
+        //
+        // Report Arch LBR depth in CPUID.1CH.00H EAX[7:0] when the Transparent mode is enabled
+        //
+        CpuInfo[0] = g_LbrCapacity & 0xFF;
     }
 }
 
@@ -62,13 +68,10 @@ TransparentCheckAndModifyCpuid(PGUEST_REGS Regs, INT32 CpuInfo[])
  * @return BOOLEAN Whether the emulation should be further continued or not
  */
 BOOLEAN
-TransparentCheckAndModifyMsrRead(PGUEST_REGS Regs, UINT64 Rip, UINT32 TargetMsr)
+TransparentCheckAndModifyMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
 {
     if ((g_TransparentEvadeMask & TRANSPARENT_EVADE_MASK_MSR) == 0)
     {
-        UNREFERENCED_PARAMETER(Regs);
-        UNREFERENCED_PARAMETER(TargetMsr);
-
         return FALSE;
     }
 
@@ -97,9 +100,9 @@ TransparentCheckAndModifyMsrRead(PGUEST_REGS Regs, UINT64 Rip, UINT32 TargetMsr)
     //     return FALSE;
     // }
 
-    UINT64 MsrValue;
-    const UINT32 LbrCapacity = g_LbrCapacity;
-
+    //
+    // Define locally so we dont have to fetch from memory on every read.
+    //
     if (TargetMsr != 0x400000b1 && TargetMsr != 0x400000b0)
     {
         LogInfo("TransparentCheckAndModifyMsrRead: MSR: %x", TargetMsr);
@@ -116,192 +119,14 @@ TransparentCheckAndModifyMsrRead(PGUEST_REGS Regs, UINT64 Rip, UINT32 TargetMsr)
 
         return TRUE;
     }
-    case IA32_DEBUGCTL:
-    case MSR_LBR_TOS:
+    }
+
+    if (TransparentCheckAndModifyLbrMsrRead(Regs, TargetMsr))
     {
         return TRUE;
     }
-    case MSR_LEGACY_LBR_SELECT:
-    case IA32_LBR_CTL:
-    {
-        SaveMsrValueToRegisters(Regs, g_GuestLbrFilter);
 
-        return TRUE;
-    }
-    }
-
-    if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_FROM_IP, LbrCapacity))
-    {
-        PDEBUGGER_SINGLE_CALLSTACK_FRAME frames = (PDEBUGGER_SINGLE_CALLSTACK_FRAME)ExAllocatePoolWithTag(
-            NonPagedPool,
-            1024 * sizeof(DEBUGGER_SINGLE_CALLSTACK_FRAME),
-            'frms');
-        if (!frames)
-        {
-            return TRUE;
-        }
-        RtlZeroMemory(frames, 1024 * sizeof(DEBUGGER_SINGLE_CALLSTACK_FRAME));
-            UINT32                          OutCount     = 0;
-            if (!g_Callbacks.DebuggingCallbackCallstackWalkthroughStack(frames, &OutCount, Regs->rsp, PAGE_SIZE * 2, FALSE))
-            {
-                LogInfo("Something is going wrong in the stack walk.\n");
-                return TRUE;
-            }
-
-            for (UINT32 i = 0; i < OutCount; i++)
-            {
-                if (frames[i].IsValidAddress && frames[i].IsExecutable)
-                {
-                    LBR_STACK_ENTRY entry  = {0};
-                    VOID *           buffer = ExAllocatePoolWithTag(NonPagedPool, 4096, 'lbrs');
-                    if (!buffer)
-                    {
-                        ExFreePoolWithTag(frames, 'frms');
-                        return TRUE;
-                    }
-                    g_Callbacks.MemoryMapperReadMemorySafeOnTargetProcess(frames[i].Value, buffer, 4096);
-                    if (!g_Callbacks.CallbackGenerateLbrEntry(frames[i].Value, buffer, Rip, &entry))
-                    {
-                        LogInfo("ATTEMPTING NEXT FRAME\n");
-                        continue;
-                    }
-                    LogInfo("Saving LBR From: %llx\n", entry.BranchEntry[entry.Tos].From);
-                    SaveMsrValueToRegisters(Regs, entry.BranchEntry[entry.Tos].From);
-                    ExFreePoolWithTag(frames, 'frms');
-                    ExFreePoolWithTag(buffer, 'lbrs');
-                    return TRUE;
-                }
-            }
-
-            // SaveMsrValueToRegisters(Regs, MsrValue);
-
-            return TRUE;
-    }
-    else if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_TO_IP, LbrCapacity))
-    {
-        PDEBUGGER_SINGLE_CALLSTACK_FRAME frames = (PDEBUGGER_SINGLE_CALLSTACK_FRAME)ExAllocatePoolWithTag(
-            NonPagedPool,
-            1024 * sizeof(DEBUGGER_SINGLE_CALLSTACK_FRAME),
-            'frms');
-        if (!frames)
-        {
-            return TRUE;
-        }
-        RtlZeroMemory(frames, 1024 * sizeof(DEBUGGER_SINGLE_CALLSTACK_FRAME));
-            UINT32                          OutCount     = 0;
-            if (!g_Callbacks.DebuggingCallbackCallstackWalkthroughStack(frames, &OutCount, Regs->rsp, PAGE_SIZE * 2, FALSE))
-            {
-                LogInfo("Something is going wrong in the stack walk.\n");
-                return TRUE;
-            }
-
-            for (UINT32 i = 0; i < OutCount; i++)
-            {
-                if (frames[i].IsValidAddress && frames[i].IsExecutable)
-                {
-                    LBR_STACK_ENTRY entry  = {0};
-                    VOID *           buffer = ExAllocatePoolWithTag(NonPagedPool, 4096, 'lbrs');
-                    if (!buffer)
-                    {
-                        ExFreePoolWithTag(frames, 'frms');
-                        return TRUE;
-                    }
-                    g_Callbacks.MemoryMapperReadMemorySafeOnTargetProcess(frames[i].Value, buffer, 4096);
-                    if (!g_Callbacks.CallbackGenerateLbrEntry(frames[i].Value, buffer, Rip, &entry))
-                    {
-                        LogInfo("ATTEMPTING NEXT FRAME\n");
-                        continue;
-                    }
-                    LogInfo("Saving LBR To: %llx\n", entry.BranchEntry[entry.Tos].To);
-                    SaveMsrValueToRegisters(Regs, entry.BranchEntry[entry.Tos].To);
-                    ExFreePoolWithTag(frames, 'frms');
-                    ExFreePoolWithTag(buffer, 'lbrs');
-                    return TRUE;
-                }
-            }
-
-            // SaveMsrValueToRegisters(Regs, MsrValue);
-
-            return TRUE;
-    }
-    else if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, LbrCapacity))
-    {
-        PDEBUGGER_SINGLE_CALLSTACK_FRAME frames = (PDEBUGGER_SINGLE_CALLSTACK_FRAME)ExAllocatePoolWithTag(
-            NonPagedPool,
-            1024 * sizeof(DEBUGGER_SINGLE_CALLSTACK_FRAME),
-            'frms');
-        if (!frames)
-        {
-            return TRUE;
-        }
-        RtlZeroMemory(frames, 1024 * sizeof(DEBUGGER_SINGLE_CALLSTACK_FRAME));
-        UINT32                          OutCount     = 0;
-        if (!g_Callbacks.DebuggingCallbackCallstackWalkthroughStack(frames, &OutCount, Regs->rsp, PAGE_SIZE * 2, FALSE))
-        {
-            LogInfo("Something is going wrong in the stack walk.\n");
-            return TRUE;
-        }
-
-
-        for (UINT32 i = 0; i < OutCount; i++)
-        {
-            if (frames[i].IsValidAddress && frames[i].IsExecutable)
-            {
-                LBR_STACK_ENTRY entry  = {0};
-                VOID *           buffer = ExAllocatePoolWithTag(NonPagedPool, 4096, 'lbrs');
-                if (!buffer)
-                {
-                    ExFreePoolWithTag(frames, 'frms');
-                    return TRUE;
-                }
-                g_Callbacks.MemoryMapperReadMemorySafeOnTargetProcess(frames[i].Value, buffer, 4096);
-                if (!g_Callbacks.CallbackGenerateLbrEntry(frames[i].Value, buffer, Rip, &entry))
-                {
-                    LogInfo("ATTEMPTING NEXT FRAME\n");
-                    continue;
-                }
-                LogInfo("Saving LBR info: %llx\n", entry.LastBranchInfo[entry.Tos].AsUInt);
-                SaveMsrValueToRegisters(Regs, entry.LastBranchInfo[entry.Tos].AsUInt);
-                ExFreePoolWithTag(frames, 'frms');
-                ExFreePoolWithTag(buffer, 'lbrs');
-                return TRUE;
-            }
-        }
-
-        return TRUE;
-    }
-      if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_FROM_IP, MAXIMUM_LBR_CAPACITY) ||
-          IN_MSR_RANGE(TargetMsr, IA32_LBR_0_TO_IP, MAXIMUM_LBR_CAPACITY) ||
-          IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, MAXIMUM_LBR_CAPACITY))
-      {
-          //
-          // Trying to access LBR stack past supported range.
-          //
-          g_Callbacks.EventInjectGeneralProtection();
-          return TRUE;
-      }
-      if (IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_FROM_IP, LbrCapacity) ||
-          IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_TO_IP, LbrCapacity) ||
-          IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_INFO_0, LbrCapacity))
-      {
-          MsrValue = CpuReadMsr(TargetMsr);
-
-          SaveMsrValueToRegisters(Regs, MsrValue);
-
-          return TRUE;
-      }
-      if (IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_FROM_IP, MAXIMUM_LBR_CAPACITY) ||
-          IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_TO_IP, MAXIMUM_LBR_CAPACITY) ||
-          IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_INFO_0, MAXIMUM_LBR_CAPACITY))
-      {
-          //
-          // Trying to access LBR stack past supported range.
-          //
-          g_Callbacks.EventInjectGeneralProtection();
-          return TRUE;
-      }
-
-  return FALSE;
+    return FALSE;
 }
 
 /**
@@ -317,9 +142,6 @@ TransparentCheckAndModifyMsrWrite(PGUEST_REGS Regs, UINT32 TargetMsr)
 {
     if ((g_TransparentEvadeMask & TRANSPARENT_EVADE_MASK_MSR) == 0)
     {
-        UNREFERENCED_PARAMETER(Regs);
-        UNREFERENCED_PARAMETER(TargetMsr);
-
         return FALSE;
     }
 
@@ -347,117 +169,11 @@ TransparentCheckAndModifyMsrWrite(PGUEST_REGS Regs, UINT32 TargetMsr)
     //     return FALSE;
     // }
 
-    UINT64            MsrValue;
-    const UINT32      LbrCapacity = g_LbrCapacity;
-
-    if (TargetMsr != 0x400000b1 && TargetMsr != 0x400000b0)
-    {
-        LogInfo("TransparentCheckAndModifyMsrWrite: MSR: %x", TargetMsr);
-    }
-    
-    MsrValue = GetMsrValueFromRegisters(Regs);
-
-    switch (TargetMsr)
-    {
-    case IA32_DEBUGCTL:
-    {
-        if (MsrValue & 1)
-        {
-            g_IsGuestLbrEnabled = TRUE;
-        }
-        else
-        {
-            g_IsGuestLbrEnabled = FALSE;
-        }
-
-        return TRUE;
-    }
-    case MSR_LEGACY_LBR_SELECT:
-    {
-        //
-        // Guest tries to set illegal filter
-        //
-        if ((MsrValue & UPPER_56_BITS) != 0)
-        {
-            g_Callbacks.EventInjectGeneralProtection();
-            return TRUE;
-        }
-
-        g_GuestLbrFilter = MsrValue;
-
-        return TRUE;
-    }
-    case MSR_LBR_TOS:
+    if (TransparentCheckAndModifyLbrMsrWrite(Regs, TargetMsr))
     {
         return TRUE;
     }
-    case IA32_LBR_CTL:
-    {
-        if (MsrValue & 1)
-        {
-            g_IsGuestLbrEnabled = TRUE;
-        }
-        else
-        {
-            g_IsGuestLbrEnabled = FALSE;
-        }
 
-        //
-        // TODO: add filter support
-        //
-        g_GuestLbrFilter = MsrValue;
-
-        return TRUE;
-    }
-    }
-
-
-        if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_FROM_IP, LbrCapacity) ||
-            IN_MSR_RANGE(TargetMsr, IA32_LBR_0_TO_IP, LbrCapacity) ||
-            IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, LbrCapacity))
-        {
-            //
-            // TODO: LBR MSRs can be written to in order to store an arbitrary value
-            //
-
-            return TRUE;
-        }
-
-        if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_FROM_IP, MAXIMUM_LBR_CAPACITY) ||
-            IN_MSR_RANGE(TargetMsr, IA32_LBR_0_TO_IP, MAXIMUM_LBR_CAPACITY) ||
-            IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, MAXIMUM_LBR_CAPACITY))
-        {
-            //
-            // Trying to access LBR stack past supported range.
-            //
-            g_Callbacks.EventInjectGeneralProtection();
-            return TRUE;
-        }
-        //
-        // Check whether TargetMSR is part of legacy LBR range.
-        //
-        if (IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_FROM_IP, LbrCapacity) ||
-            IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_TO_IP, LbrCapacity) ||
-            IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_INFO_0, LbrCapacity))
-        {
-            //
-            // TODO: LBR MSRs can be written to in order to store an arbitrary value
-            //
-
-            return TRUE;
-        }
-
-        if (IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_FROM_IP, MAXIMUM_LBR_CAPACITY) ||
-            IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_TO_IP, MAXIMUM_LBR_CAPACITY) ||
-            IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_INFO_0, MAXIMUM_LBR_CAPACITY))
-        {
-            //
-            // Trying to access LBR stack past supported range.
-            //
-            g_Callbacks.EventInjectGeneralProtection();
-            return TRUE;
-        }
-    
     return FALSE;
 }
 
@@ -505,27 +221,4 @@ TransparentCheckAndModifyIOWrite(UINT16 Port)
     }
 
     return FALSE;
-}
-
-/**
- * @brief Save MSR value into relevant return registers
- *
- * @return VOID
- */
-VOID
-SaveMsrValueToRegisters(PGUEST_REGS Regs, UINT64 MsrValue)
-{
-    Regs->rax = (UINT32)(MsrValue & 0xffffffff);
-    Regs->rdx = (UINT32)(MsrValue >> 32);
-}
-
-/**
- * @brief Compile WRMSR operand from registers
- *
- * @return UINT64
- */
-UINT64
-GetMsrValueFromRegisters(PGUEST_REGS Regs) 
-{
-    return ((UINT64)Regs->rdx << 32) | Regs->rax;
 }
