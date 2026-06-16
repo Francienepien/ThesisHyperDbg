@@ -11,13 +11,12 @@ TransparentCheckAndModifyLbrMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
     {
     case IA32_DEBUGCTL:
     {
-        MsrValue = CpuReadMsr(IA32_DEBUGCTL);
-        SaveMsrValueToRegisters(Regs, MsrValue);
+        SaveMsrValueToRegisters(Regs, g_GuestDebugCtl);
         return TRUE;
     }
     case MSR_LBR_TOS:
     {
-        if (!g_isArchLbr)
+        if (!g_IsArchLbr)
         {
             //
             // Return any valid value.
@@ -37,7 +36,7 @@ TransparentCheckAndModifyLbrMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
     }
     case MSR_LEGACY_LBR_SELECT:
     {
-        if (!g_isArchLbr)
+        if (!g_IsArchLbr)
         {
             SaveMsrValueToRegisters(Regs, g_GuestLbrFilter.AsUInt);
         }
@@ -45,7 +44,7 @@ TransparentCheckAndModifyLbrMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
     }
     case IA32_LBR_CTL:
     {
-        if (g_isArchLbr)
+        if (g_IsArchLbr)
         {
             SaveMsrValueToRegisters(Regs, g_GuestLbrFilter.AsUInt);
         }
@@ -61,7 +60,7 @@ TransparentCheckAndModifyLbrMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
             SaveMsrValueToRegisters(Regs, 0);
             return TRUE;
         }
-        else if (!g_isArchLbr)
+        else if (!g_IsArchLbr)
         {
             g_Callbacks.EventInjectGeneralProtection();
             return TRUE;
@@ -74,7 +73,7 @@ TransparentCheckAndModifyLbrMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
             SaveMsrValueToRegisters(Regs, 0);
             return TRUE;
         }
-        SaveMsrValueToRegisters(Regs, entry.BranchEntry[entry.Tos].From);
+        SaveMsrValueToRegisters(Regs, entry.BranchEntry[TargetMsr - IA32_LBR_0_FROM_IP].From);
         return TRUE;
     }
     else if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_TO_IP, LbrCapacity))
@@ -84,7 +83,7 @@ TransparentCheckAndModifyLbrMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
             SaveMsrValueToRegisters(Regs, 0);
             return TRUE;
         }
-        else if (!g_isArchLbr)
+        else if (!g_IsArchLbr)
         {
             g_Callbacks.EventInjectGeneralProtection();
             return TRUE;
@@ -97,7 +96,7 @@ TransparentCheckAndModifyLbrMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
             SaveMsrValueToRegisters(Regs, 0);
             return TRUE;
         }
-        SaveMsrValueToRegisters(Regs, entry.BranchEntry[entry.Tos].To);
+        SaveMsrValueToRegisters(Regs, entry.BranchEntry[TargetMsr - IA32_LBR_0_TO_IP].To);
         return TRUE;
     }
     else if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, LbrCapacity))
@@ -107,7 +106,7 @@ TransparentCheckAndModifyLbrMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
             SaveMsrValueToRegisters(Regs, 0);
             return TRUE;
         }
-        else if (!g_isArchLbr)
+        else if (!g_IsArchLbr)
         {
             g_Callbacks.EventInjectGeneralProtection();
             return TRUE;
@@ -118,7 +117,7 @@ TransparentCheckAndModifyLbrMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
 
     if (IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_FROM_IP, LbrCapacity))
     {
-        if (!g_IsGuestLbrEnabled || g_isArchLbr)
+        if (!g_IsGuestLbrEnabled || g_IsArchLbr)
         {
             SaveMsrValueToRegisters(Regs, 0);
             return TRUE;
@@ -131,12 +130,12 @@ TransparentCheckAndModifyLbrMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
             SaveMsrValueToRegisters(Regs, 0);
             return TRUE;
         }
-        SaveMsrValueToRegisters(Regs, entry.BranchEntry[entry.Tos].From);
+        SaveMsrValueToRegisters(Regs, entry.BranchEntry[TargetMsr - MSR_LASTBRANCH_0_FROM_IP].From);
         return TRUE;
     }
     else if (IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_TO_IP, LbrCapacity))
     {
-        if (!g_IsGuestLbrEnabled || g_isArchLbr)
+        if (!g_IsGuestLbrEnabled || g_IsArchLbr)
         {
             SaveMsrValueToRegisters(Regs, 0);
             return TRUE;
@@ -149,12 +148,12 @@ TransparentCheckAndModifyLbrMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
             SaveMsrValueToRegisters(Regs, 0);
             return TRUE;
         }
-        SaveMsrValueToRegisters(Regs, entry.BranchEntry[entry.Tos].To);
+        SaveMsrValueToRegisters(Regs, entry.BranchEntry[TargetMsr - MSR_LASTBRANCH_0_TO_IP].To);
         return TRUE;
     }
     else if (IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_INFO_0, LbrCapacity))
     {
-        if (!g_IsGuestLbrEnabled || g_isArchLbr)
+        if (!g_IsGuestLbrEnabled || g_IsArchLbr)
         {
             SaveMsrValueToRegisters(Regs, 0);
             return TRUE;
@@ -166,10 +165,7 @@ TransparentCheckAndModifyLbrMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
     if (LbrCapacity < MAXIMUM_LBR_CAPACITY &&
         (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_FROM_IP, MAXIMUM_LBR_CAPACITY) ||
          IN_MSR_RANGE(TargetMsr, IA32_LBR_0_TO_IP, MAXIMUM_LBR_CAPACITY) ||
-         IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, MAXIMUM_LBR_CAPACITY) ||
-         IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_FROM_IP, MAXIMUM_LBR_CAPACITY) ||
-         IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_0_TO_IP, MAXIMUM_LBR_CAPACITY) ||
-         IN_MSR_RANGE(TargetMsr, MSR_LASTBRANCH_INFO_0, MAXIMUM_LBR_CAPACITY)))
+         IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, MAXIMUM_LBR_CAPACITY)))
     {
         //
         // Trying to access LBR stack past supported range.
@@ -187,11 +183,6 @@ TransparentCheckAndModifyLbrMsrWrite(PGUEST_REGS Regs, UINT32 TargetMsr)
     UINT64       MsrValue;
     const UINT32 LbrCapacity = g_LbrCapacity;
 
-    if (TargetMsr != 0x400000b1 && TargetMsr != 0x400000b0)
-    {
-        LogInfo("TransparentCheckAndModifyMsrWrite: MSR: %x", TargetMsr);
-    }
-
     MsrValue = GetMsrValueFromRegisters(Regs);
 
     switch (TargetMsr)
@@ -199,13 +190,18 @@ TransparentCheckAndModifyLbrMsrWrite(PGUEST_REGS Regs, UINT32 TargetMsr)
     case IA32_DEBUGCTL:
     {
         //
-        // Guest tries to enable Arch LBR
+        // Guest tries to enable LBR
         // We dont check for disabling, as guest likely expects branches to be populated after lbr is disabled.
         //
-        if (MsrValue & 1 && !g_isArchLbr)
+        if (MsrValue & 1 && !g_IsArchLbr)
         {
             g_IsGuestLbrEnabled = TRUE;
         }
+
+        //
+        // Save state in hypervisor, as vmware masks the msr access.
+        //
+        g_GuestDebugCtl = MsrValue;
 
         return TRUE;
     }
@@ -220,7 +216,7 @@ TransparentCheckAndModifyLbrMsrWrite(PGUEST_REGS Regs, UINT32 TargetMsr)
             return TRUE;
         }
 
-        if (!g_isArchLbr)
+        if (!g_IsArchLbr)
         {
             g_GuestLbrFilter.AsUInt = MsrValue;
         }
@@ -237,10 +233,10 @@ TransparentCheckAndModifyLbrMsrWrite(PGUEST_REGS Regs, UINT32 TargetMsr)
         // Guest tries to enable Arch LBR
         // We dont check for disabling, as guest likely expects branches to be populated after lbr is disabled.
         //
-        if (!g_isArchLbr)
+        if (!g_IsArchLbr)
         {
             //
-            // IA32_LBR_CTL should not exist on legacy-lbr CPUs
+            // IA32_LBR_CTL should not exist on legacy LBR CPUs
             //
             g_Callbacks.EventInjectGeneralProtection();
             return TRUE;
@@ -331,29 +327,28 @@ TransparentGenerateLbrEntry(PLBR_STACK_ENTRY Entry, UINT64 Rsp, BOOLEAN TraceKer
 
     if (!g_Callbacks.DebuggingCallbackCallstackWalkthroughStack(frames, &OutCount, Rsp, PAGE_SIZE * 2, FALSE))
     {
-        LogInfo("Something is going wrong in the stack walk.\n");
+        PlatformFreeMemory(frames);
         return FALSE;
     }
 
-    for (UINT32 i = 0; i < OutCount; i++)
+    buffer = PlatformAllocateMemory(4096);
+
+    if (!buffer)
+    {
+        PlatformFreeMemory(frames);
+        return FALSE;
+    }
+
+    for (UINT32 i = 7; i < OutCount; i++)
     {
         if (frames[i].IsValidAddress && frames[i].IsExecutable &&
             ((TraceKernelSpace && frames[i].Value >= 0xFFFF080000000000) ||
              (TraceUserSpace && frames[i].Value <= 0x00007FFFFFFFFFFF)))
         {
-            buffer = PlatformAllocateMemory(4096);
-
-            if (!buffer)
-            {
-                PlatformFreeMemory(frames);
-                return FALSE;
-            }
-
             g_Callbacks.MemoryMapperReadMemorySafeOnTargetProcess(frames[i].Value, buffer, 4096);
 
             if (!g_Callbacks.CallbackDisassemblerFindGuestBranch(frames[i].Value, buffer, Entry, TransparentGetLbrFilterForBranchGeneration()))
             {
-                LogInfo("ATTEMPTING NEXT FRAME\n");
                 continue;
             }
 
@@ -374,7 +369,7 @@ TransparentGenerateLbrMetadata()
     Out.CycleCount = (UINT64)(5 + (TransparentGetRand() % 75));
     Out.Mispred    = (UINT64)(TransparentGetRand() % 2);
     
-    if (g_isArchLbr)
+    if (g_IsArchLbr)
     {
         Out.CycCntValid_OnlyArchLbr = 1;
         Out.BrType_OnlyArchLbr      = TransparentGetRandomAllowedBranchType();
@@ -389,7 +384,7 @@ TransparentGetLbrFilterForBranchGeneration()
     UINT32 Out = 0;
     GUEST_LBR_FILTER RawFilter = g_GuestLbrFilter;
 
-    if (g_isArchLbr)
+    if (g_IsArchLbr)
     {
         if (RawFilter.LBR_CTL.NearRelCall)
             Out |= LBR_HYPEREVADE_FILTER_NEAR_REL_CALL;

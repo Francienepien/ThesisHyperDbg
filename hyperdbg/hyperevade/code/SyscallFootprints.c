@@ -1445,8 +1445,8 @@ TransparentReplaceVendorStringFromBufferWChar(SYSCALL_CALLBACK_CONTEXT_PARAMS * 
     // An error occurred while performing the mitigations, the user buffer might be left unmodified
     //
 ReturnWithError:
-    LogInfo("A call for to read a registry entry, which could contain hypervisor specific data, was intercepted but the mitigations failed");
-    LogInfo("The caller process received the results in this virtual address: %llx", Params->OptionalParam2);
+    // LogInfo("A call for to read a registry entry, which could contain hypervisor specific data, was intercepted but the mitigations failed");
+    // LogInfo("The caller process received the results in this virtual address: %llx", Params->OptionalParam2);
 
     if (Buf != NULL)
     {

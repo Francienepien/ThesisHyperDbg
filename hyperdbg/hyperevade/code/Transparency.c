@@ -84,7 +84,7 @@ TransparentHideDebugger(HYPEREVADE_CALLBACKS *                        Hyperevade
         //
         // Store LBR info
         //
-        if (!g_Callbacks.HyperTraceLbrIsSupported(&g_LbrCapacity, &g_isArchLbr))
+        if (!g_Callbacks.HyperTraceLbrIsSupported(&g_LbrCapacity, &g_IsArchLbr))
         {
             //
             // We cannot reliably detect arch LBR in remote guests.
@@ -92,7 +92,7 @@ TransparentHideDebugger(HYPEREVADE_CALLBACKS *                        Hyperevade
             //
             if (IsCpu12thGenerationOrOlder())
             {
-                g_isArchLbr   = TRUE;
+                g_IsArchLbr   = TRUE;
                 g_LbrCapacity = MAXIMUM_LBR_CAPACITY;
             }
         }

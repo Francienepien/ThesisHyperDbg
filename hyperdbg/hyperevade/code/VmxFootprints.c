@@ -43,14 +43,14 @@ TransparentCheckAndModifyCpuid(PGUEST_REGS Regs, INT32 CpuInfo[])
         //
         CpuInfo[0] = CpuInfo[1] = CpuInfo[2] = CpuInfo[3] = 0x40000000;
     }
-    else if (Regs->rax == CPUID_STRUCTURED_EXTENDED_FEATURE_FLAGS && Regs->rcx == 0 && g_isArchLbr)
+    else if (Regs->rax == CPUID_STRUCTURED_EXTENDED_FEATURE_FLAGS && Regs->rcx == 0 && g_IsArchLbr)
     {
         //
         // Report Arch LBR support in CPUID.07H.00H ECX[bit 19] when the Transparent mode is enabled
         //
         CpuInfo[3] |= (1 << 19);
     }
-    else if (Regs->rax == 0x1c && g_isArchLbr)
+    else if (Regs->rax == 0x1c && g_IsArchLbr)
     {
         //
         // Report Arch LBR depth in CPUID.1CH.00H EAX[7:0] when the Transparent mode is enabled

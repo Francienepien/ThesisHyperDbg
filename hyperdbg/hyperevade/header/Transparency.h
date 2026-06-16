@@ -73,9 +73,11 @@ UINT32 g_TransparentEvadeMask;
 
 BOOLEAN g_IsGuestLbrEnabled;
 
-BOOLEAN g_isArchLbr;
+BOOLEAN g_IsArchLbr;
 
 UINT32 g_LbrCapacity;
+
+UINT64 g_GuestDebugCtl;
 
 GUEST_LBR_FILTER g_GuestLbrFilter;
 

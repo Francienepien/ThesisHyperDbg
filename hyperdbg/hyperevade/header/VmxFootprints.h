@@ -11,6 +11,7 @@
  */
 #pragma once
 
-//
-// Some of the functions are exported in the module
-//
+//////////////////////////////////////////////////
+//		            Constants                   //
+//////////////////////////////////////////////////
+#define MSR_SMI_COUNT 0x00000034
