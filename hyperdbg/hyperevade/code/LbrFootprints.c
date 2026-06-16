@@ -56,15 +56,20 @@ TransparentCheckAndModifyLbrMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
 
     if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_FROM_IP, LbrCapacity))
     {
-        if (!g_IsGuestLbrEnabled || !g_isArchLbr)
+        if (!g_IsGuestLbrEnabled)
         {
             SaveMsrValueToRegisters(Regs, 0);
             return TRUE;
         }
+        else if (!g_isArchLbr)
+        {
+            g_Callbacks.EventInjectGeneralProtection();
+            return TRUE;
+        }
         if (!TransparentGenerateLbrEntry(&entry, 
                                          Regs->rsp, 
-                                         g_GuestLbrFilter.LBR_CTL.OS, 
-                                         g_GuestLbrFilter.LBR_CTL.USR))
+                                         (BOOLEAN)g_GuestLbrFilter.LBR_CTL.OS, 
+                                         (BOOLEAN)g_GuestLbrFilter.LBR_CTL.USR))
         {
             SaveMsrValueToRegisters(Regs, 0);
             return TRUE;
@@ -74,15 +79,20 @@ TransparentCheckAndModifyLbrMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
     }
     else if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_TO_IP, LbrCapacity))
     {
-        if (!g_IsGuestLbrEnabled || !g_isArchLbr)
+        if (!g_IsGuestLbrEnabled)
         {
             SaveMsrValueToRegisters(Regs, 0);
             return TRUE;
         }
+        else if (!g_isArchLbr)
+        {
+            g_Callbacks.EventInjectGeneralProtection();
+            return TRUE;
+        }
         if (!TransparentGenerateLbrEntry(&entry,
                                          Regs->rsp,
-                                         g_GuestLbrFilter.LBR_CTL.OS,
-                                         g_GuestLbrFilter.LBR_CTL.USR))
+                                         (BOOLEAN)g_GuestLbrFilter.LBR_CTL.OS,
+                                         (BOOLEAN)g_GuestLbrFilter.LBR_CTL.USR))
         {
             SaveMsrValueToRegisters(Regs, 0);
             return TRUE;
@@ -92,9 +102,14 @@ TransparentCheckAndModifyLbrMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
     }
     else if (IN_MSR_RANGE(TargetMsr, IA32_LBR_0_INFO, LbrCapacity))
     {
-        if (!g_IsGuestLbrEnabled || !g_isArchLbr)
+        if (!g_IsGuestLbrEnabled)
         {
             SaveMsrValueToRegisters(Regs, 0);
+            return TRUE;
+        }
+        else if (!g_isArchLbr)
+        {
+            g_Callbacks.EventInjectGeneralProtection();
             return TRUE;
         }
         SaveMsrValueToRegisters(Regs, TransparentGenerateLbrMetadata().AsUInt);
