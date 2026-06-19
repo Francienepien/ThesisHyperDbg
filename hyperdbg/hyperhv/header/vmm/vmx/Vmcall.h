@@ -374,6 +374,18 @@
  */
 #define VMCALL_UNSET_CLEAR_GUEST_IA32_LBR_CTL 0x0000003A
 
+/**
+ * @brief VMCALL to update VMCS controls when entering transparent mode.
+ *
+ */
+#define VMCALL_MASK_CR4_VMXE 0x0000003B
+
+/**
+ * @brief VMCALL to update VMCS controls when leaving transparent mode.
+ *
+ */
+#define VMCALL_UNMASK_CR4_VMXE 0x0000003C
+
 //////////////////////////////////////////////////
 //				    Functions					//
 //////////////////////////////////////////////////

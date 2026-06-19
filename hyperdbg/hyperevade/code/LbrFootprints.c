@@ -4,34 +4,20 @@ BOOLEAN
 TransparentCheckAndModifyLbrMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
 {
     const UINT32    LbrCapacity = g_LbrCapacity;
+    UINT64          MsrValue;    
     LBR_STACK_ENTRY entry       = {0};
-    UINT64          MsrValue;
 
     switch (TargetMsr)
     {
     case IA32_DEBUGCTL:
     {
-        SaveMsrValueToRegisters(Regs, g_GuestDebugCtl);
+        VmxVmread64P(VMCS_GUEST_DEBUGCTL, &MsrValue);
+        SaveMsrValueToRegisters(Regs, MsrValue);
         return TRUE;
     }
     case MSR_LBR_TOS:
     {
-        if (!g_IsArchLbr)
-        {
-            //
-            // Return any valid value.
-            //
-            MsrValue = TransparentGetRand() % LbrCapacity;
-        }
-        else
-        {
-            //
-            // Arch LBR does not populate this MSR
-            //
-            MsrValue = 0;
-        }
-
-        SaveMsrValueToRegisters(Regs, MsrValue);
+        SaveMsrValueToRegisters(Regs, 0);
         return TRUE;
     }
     case MSR_LEGACY_LBR_SELECT:
@@ -201,7 +187,7 @@ TransparentCheckAndModifyLbrMsrWrite(PGUEST_REGS Regs, UINT32 TargetMsr)
         //
         // Save state in hypervisor, as vmware masks the msr access.
         //
-        g_GuestDebugCtl = MsrValue;
+        VmxVmwrite64(VMCS_GUEST_DEBUGCTL, MsrValue);
 
         return TRUE;
     }

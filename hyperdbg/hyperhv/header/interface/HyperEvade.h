@@ -11,3 +11,9 @@ TransparentSetIOBitmap();
 
 VOID
 TransparentUnSetIOBitmap();
+
+VOID
+TransparentMaskCr4Vmxe();
+
+VOID
+TransparentUnmaskCr4Vmxe();

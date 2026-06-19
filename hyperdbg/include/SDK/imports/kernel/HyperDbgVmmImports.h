@@ -1029,6 +1029,12 @@ BroadcastEnableEferSyscallEventsOnAllProcessors();
 IMPORT_EXPORT_VMM VOID
 BroadcastDisableEferSyscallEventsOnAllProcessors();
 
+IMPORT_EXPORT_VMM VOID
+BroadcastMaskCr4OnAllProcessors();
+
+IMPORT_EXPORT_VMM VOID
+BroadcastUnmaskCr4OnAllProcessors();
+
 //////////////////////////////////////////////////
 //     Device-related Functions                	//
 //////////////////////////////////////////////////

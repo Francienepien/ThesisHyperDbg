@@ -78,6 +78,9 @@
     <ClCompile Include="code\LbrFootprints.c">
       <Filter>code</Filter>
     </ClCompile>
+    <ClCompile Include="..\include\platform\kernel\code\PlatformIntrinsicsVmx.c">
+      <Filter>code\platform</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="header\Transparency.h">
@@ -103,6 +106,9 @@
     </ClInclude>
     <ClInclude Include="header\LbrFootprints.h">
       <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\platform\kernel\header\PlatformIntrinsicsVmx.h">
+      <Filter>header\platform</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

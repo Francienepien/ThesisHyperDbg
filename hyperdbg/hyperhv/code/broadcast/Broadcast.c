@@ -536,3 +536,25 @@ BroadcastDisablePmlOnAllProcessors()
 {
     KeGenericCallDpc(DpcRoutineDisablePml, 0x0);
 }
+
+/**
+ * @brief routines for masking CR4 when entering transparent mode
+ *
+ * @return VOID
+ */
+VOID
+BroadcastMaskCr4OnAllProcessors()
+{
+    KeGenericCallDpc(DpcRoutineMaskCr4OnAllCores, 0x0);
+}
+
+/**
+ * @brief routines for unmasking CR4 when leaving transparent mode
+ *
+ * @return VOID
+ */
+VOID
+BroadcastUnmaskCr4OnAllProcessors()
+{
+    KeGenericCallDpc(DpcRoutineUnmaskCr4OnAllCores, 0x0);
+}

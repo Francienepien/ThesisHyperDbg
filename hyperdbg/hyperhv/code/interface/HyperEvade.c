@@ -120,6 +120,11 @@ TransparentHideDebuggerWrapper(DEBUGGER_HIDE_AND_TRANSPARENT_DEBUGGER_MODE * Tra
         //
         TransparentSetIOBitmap();
 
+        //
+        // Update VMCS controls
+        //
+        BroadcastMaskCr4OnAllProcessors();
+
         return TRUE;
     }
     else
@@ -164,6 +169,11 @@ TransparentUnhideDebuggerWrapper(DEBUGGER_HIDE_AND_TRANSPARENT_DEBUGGER_MODE * T
         TransparentUnSetIOBitmap();
 
         //
+        // Update VMCS controls
+        //
+        BroadcastUnmaskCr4OnAllProcessors();
+
+        //
         // Unset transparent mode for the VMM module
         //
         g_CheckForFootprints = FALSE;
@@ -199,6 +209,7 @@ TransparentSetMSRBitmap()
 
     //
     // Enable bitmaps to intercept MSR reads/writes related to LBR and SMI count as they can be used for VM detection
+    // IA32_FEATURE_CONTROL is spoofed to be locked and not support VMXON
     //
     for (size_t ProcessorID = 0; ProcessorID < ProcessorCount; ProcessorID++)
     {
@@ -207,6 +218,7 @@ TransparentSetMSRBitmap()
         MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], MSR_LBR_TOS, TRUE, TRUE);
         MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], IA32_LBR_CTL, TRUE, TRUE);
         MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], IA32_DEBUGCTL, TRUE, TRUE);
+        MsrHandleSetMsrBitmap(&g_GuestState[ProcessorID], IA32_FEATURE_CONTROL, TRUE, TRUE);
 
         for (size_t BranchIndex = 0; BranchIndex < MAXIMUM_LBR_CAPACITY; BranchIndex++)
         {
@@ -289,4 +301,40 @@ TransparentUnSetIOBitmap()
     {
         IoHandleUnSetIoBitmap(&g_GuestState[ProcessorID], 0xb2);
     }
+}
+
+/**
+ * @brief Update CR4 masking when enabling transparent mode
+ *
+ * @return VOID
+ */
+VOID
+TransparentMaskCr4Vmxe()
+{
+    UINT64 ExistingMask = 0;
+    UINT64 GuestCr4     = 0;
+
+    VmxVmread64P(VMCS_CTRL_CR4_GUEST_HOST_MASK, &ExistingMask);
+    VmxVmread64P(VMCS_GUEST_CR4, &GuestCr4);
+
+    VmxVmwrite64(VMCS_CTRL_CR4_GUEST_HOST_MASK, ExistingMask | REG_CR4_VMXE);
+    VmxVmwrite64(VMCS_CTRL_CR4_READ_SHADOW, GuestCr4 & ~REG_CR4_VMXE);
+}
+
+/**
+ * @brief Update CR4 masking when disabling transparent mode
+ *
+ * @return VOID
+ */
+VOID
+TransparentUnmaskCr4Vmxe()
+{
+    UINT64 ExistingMask = 0;
+    UINT64 GuestCr4     = 0;
+
+    VmxVmread64P(VMCS_CTRL_CR4_GUEST_HOST_MASK, &ExistingMask);
+    VmxVmread64P(VMCS_GUEST_CR4, &GuestCr4);
+
+    VmxVmwrite64(VMCS_CTRL_CR4_GUEST_HOST_MASK, ExistingMask & ~REG_CR4_VMXE);
+    VmxVmwrite64(VMCS_CTRL_CR4_READ_SHADOW, GuestCr4 | REG_CR4_VMXE);
 }

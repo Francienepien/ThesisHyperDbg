@@ -141,6 +141,7 @@ HvHandleControlRegisterAccess(VIRTUAL_MACHINE_STATE *         VCpu,
                               VMX_EXIT_QUALIFICATION_MOV_CR * CrExitQualification)
 {
     UINT64 * RegPtr;
+    UINT64   Mask;
     UINT64   NewCr3;
     CR3_TYPE NewCr3Reg;
 
@@ -210,6 +211,36 @@ HvHandleControlRegisterAccess(VIRTUAL_MACHINE_STATE *         VCpu,
 
         case VMX_EXIT_QUALIFICATION_REGISTER_CR4:
 
+            if (g_CheckForFootprints)
+            {
+                //
+                // Inject #GP if any reserved bits get set
+                //
+                if (*RegPtr & REG_CR4_RESERVED)
+                {
+                    EventInjectGeneralProtection();
+                    break;
+                }
+
+                //
+                // Inject #UD when attempting to set CR4.VMXE, as VMX support in CPUID gets masked out in transparent mode.
+                //
+                if (*RegPtr & REG_CR4_VMXE)
+                {
+                    EventInjectUndefinedOpcode(VCpu);
+                    break;
+                }
+
+                VmxVmread64P(VMCS_CTRL_CR4_GUEST_HOST_MASK, &Mask);
+
+                UINT64 NewRealCr4 = (*RegPtr & Mask) | (*RegPtr & ~Mask);
+                UINT64 NewShadow = *RegPtr & ~REG_CR4_VMXE;
+
+                VmxVmwrite64(VMCS_GUEST_CR4, NewRealCr4);
+                VmxVmwrite64(VMCS_CTRL_CR4_READ_SHADOW, NewShadow);
+                break;
+            }
+
             VmxVmwrite64(VMCS_GUEST_CR4, *RegPtr);
             VmxVmwrite64(VMCS_CTRL_CR4_READ_SHADOW, *RegPtr);
 
@@ -243,13 +274,14 @@ HvHandleControlRegisterAccess(VIRTUAL_MACHINE_STATE *         VCpu,
 
             VmxVmread64P(VMCS_GUEST_CR4, RegPtr);
 
-            if (g_CheckForFootprints)
-            {
-                //
-                // Hide CR4.VMXE and CR4.VMSE when in transparent mode.
-                //
-                *RegPtr &= ~(REG_CR4_VMXE | REG_CR4_VMXE);
-            }
+            //if (g_CheckForFootprints)
+            //{
+            //    //
+            //    // Hide CR4.VMXE and CR4.VMSE when in transparent mode.
+            //    //
+            //    *RegPtr &= ~(REG_CR4_VMXE | REG_CR4_SMXE);
+            //    LogInfo("Reading CR4: 0x%llx\n", *RegPtr);
+            //}
 
             break;
 

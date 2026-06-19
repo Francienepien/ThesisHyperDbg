@@ -126,6 +126,7 @@ VmxVmexitHandler(_Inout_ PGUEST_REGS GuestRegs)
         //
         // Emulate Vmread behaviour
         //
+        DbgPrint("Executing VMREAD\n");
         VmxEmulationVmread(VCpu);
 
         break;
@@ -144,6 +145,7 @@ VmxVmexitHandler(_Inout_ PGUEST_REGS GuestRegs)
         //
         // Emulate Vmwrite behaviour
         //
+        DbgPrint("Executing VMWRITE\n");
         VmxEmulationVmwrite(VCpu);
 
         break;
@@ -153,6 +155,7 @@ VmxVmexitHandler(_Inout_ PGUEST_REGS GuestRegs)
         //
         // Emulate Vmxoff behaviour
         //
+        DbgPrint("Executing VMXOFF\n");
         VmxEmulationVmxoff(VCpu);
 
         break;
@@ -171,7 +174,24 @@ VmxVmexitHandler(_Inout_ PGUEST_REGS GuestRegs)
         //
         // Emulate Vmxon behaviour
         //
+        DbgPrint("Executing VMXON\n");
         VmxEmulationVmxon(VCpu);
+
+        UINT32 intfield, instrlen, entryinstrlen;
+
+        VmxVmread32P(VMCS_CTRL_VMENTRY_INTERRUPTION_INFORMATION_FIELD, &intfield);
+        VmxVmread32P(VMCS_VMEXIT_INSTRUCTION_LENGTH, &instrlen);
+        VmxVmread32P(VMCS_CTRL_VMENTRY_INSTRUCTION_LENGTH, &entryinstrlen);
+
+        DbgPrint("Guest executed VMXON - injecting #UD\n");
+        DbgPrint("  Guest RIP:        0x%llX\n", VCpu->LastVmexitRip);
+        DbgPrint("  Rip Incremented:  0x%d\n", VCpu->IncrementRip);
+        DbgPrint("  Guest CR4:        0x%llX\n", GetGuestCr4(VCpu));
+        DbgPrint("  Guest CR0:        0x%llX\n", GetGuestCr0(VCpu));
+        DbgPrint("  Guest RFLAGS:     0x%llX\n", GetGuestRFlags(VCpu));
+        DbgPrint("  Injection field:  0x%X\n", intfield);
+        DbgPrint("  Instruction len:  0x%X\n", instrlen);
+        DbgPrint("  Entry instr len:  0x%X\n", entryinstrlen);
 
         break;
     }

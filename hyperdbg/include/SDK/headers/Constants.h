@@ -635,18 +635,20 @@ typedef enum _SEGMENT_REGISTERS
  * @brief Intel CPU features in CR4
  *
  */
-#define REG_CR4_VME        0x0001 /* enable vm86 extensions */
-#define REG_CR4_PVI        0x0002 /* virtual interrupts flag enable */
-#define REG_CR4_TSD        0x0004 /* disable time stamp at ipl 3 */
-#define REG_CR4_DE         0x0008 /* enable debugging extensions */
-#define REG_CR4_PSE        0x0010 /* enable page size extensions */
-#define REG_CR4_PAE        0x0020 /* enable physical address extensions */
-#define REG_CR4_MCE        0x0040 /* Machine check enable */
-#define REG_CR4_PGE        0x0080 /* enable global pages */
-#define REG_CR4_PCE        0x0100 /* enable performance counters at ipl 3 */
-#define REG_CR4_OSFXSR     0x0200 /* enable fast FPU save and restore */
-#define REG_CR4_OSXMMEXCPT 0x0400 /* enable unmasked SSE exceptions */
-#define REG_CR4_VMXE       0x2000 /* enable VMX */
+#define REG_CR4_VME        0x0000000000000001 /* enable vm86 extensions */
+#define REG_CR4_PVI        0x0000000000000002 /* virtual interrupts flag enable */
+#define REG_CR4_TSD        0x0000000000000004 /* disable time stamp at ipl 3 */
+#define REG_CR4_DE         0x0000000000000008 /* enable debugging extensions */
+#define REG_CR4_PSE        0x0000000000000010 /* enable page size extensions */
+#define REG_CR4_PAE        0x0000000000000020 /* enable physical address extensions */
+#define REG_CR4_MCE        0x0000000000000040 /* Machine check enable */
+#define REG_CR4_PGE        0x0000000000000080 /* enable global pages */
+#define REG_CR4_PCE        0x0000000000000100 /* enable performance counters at ipl 3 */
+#define REG_CR4_OSFXSR     0x0000000000000200 /* enable fast FPU save and restore */
+#define REG_CR4_OSXMMEXCPT 0x0000000000000400 /* enable unmasked SSE exceptions */
+#define REG_CR4_VMXE       0x0000000000002000 /* enable VMX */
+#define REG_CR4_SMXE       0x0000000000004000 /* enable SMX */
+#define REG_CR4_RESERVED   0xffffff0113008000 /* Reserved bits */
 
 /*
  * @brief Segment register and corresponding GDT meaning in Windows
@@ -699,6 +701,9 @@ typedef enum _SEGMENT_REGISTERS
  *
  */
 #define CPUID_PROCESSOR_AND_PROCESSOR_FEATURE_IDENTIFIERS 0x00000001
+#define CPUID_VMX_SUPPORT_BIT                             0x20
+#define CPUID_SMX_SUPPORT_BIT                             0x40
+#define CPUID_ARCH_LBR_PRESENT_BIT                        0x80000
 
 /**
  * @brief Hypervisor reserved range for RDMSR and WRMSR

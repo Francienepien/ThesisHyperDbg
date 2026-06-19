@@ -608,6 +608,18 @@ VmxVmcallHandler(VIRTUAL_MACHINE_STATE * VCpu,
         VmcallStatus = STATUS_SUCCESS;
         break;
     }
+    case VMCALL_MASK_CR4_VMXE:
+    {
+        TransparentMaskCr4Vmxe();
+        VmcallStatus = STATUS_SUCCESS;
+        break;
+    }
+    case VMCALL_UNMASK_CR4_VMXE:
+    {
+        TransparentUnmaskCr4Vmxe();
+        VmcallStatus = STATUS_SUCCESS;
+        break;
+    }
     default:
     {
         LogError("Err, unsupported VMCALL (%llx)", VmcallNumber);

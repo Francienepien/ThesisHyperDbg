@@ -36,7 +36,7 @@ VmxEmulationVmclear(VIRTUAL_MACHINE_STATE * VCpu)
 
     LogInfo("Guest executed VMCLEAR\n");
 
-    VMSucceed();
+    VMFailWithoutErrorCode();
 }
 
 /**
@@ -51,8 +51,7 @@ VmxEmulationVmptrld(VIRTUAL_MACHINE_STATE * VCpu)
     UINT64 FetchedAddress;
 
     //
-    // Emulate Windows VBS behaviour which locks CR4.VMXE at 0.
-    // This means we can never execute VMLAUNCH and thus we can never have an active VMCS
+    // We mask CR4.VMXE at 0 so we are not in VMX operation.
     //
     if (g_CheckForFootprints)
     {
@@ -72,7 +71,7 @@ VmxEmulationVmptrld(VIRTUAL_MACHINE_STATE * VCpu)
 
     LogInfo("Guest executed VMPTRLD\n");
 
-    VMSucceed();
+    VMFailWithoutErrorCode();
 }
 
 /**
@@ -85,8 +84,7 @@ VOID
 VmxEmulationVmptrst(VIRTUAL_MACHINE_STATE * VCpu)
 {
     //
-    // Emulate Windows VBS behaviour which locks CR4.VMXE at 0.
-    // This means we can never execute VMLAUNCH and thus we can never have an active VMCS
+    // We mask CR4.VMXE at 0 so we are not in VMX operation.
     //
     if (g_CheckForFootprints)
     {
@@ -101,7 +99,7 @@ VmxEmulationVmptrst(VIRTUAL_MACHINE_STATE * VCpu)
 
     LogInfo("Guest executed VMPTRST\n");
 
-    VMSucceed();
+    VMFailWithoutErrorCode();
 }
 
 /**
@@ -116,11 +114,11 @@ VmxEmulationVmread(VIRTUAL_MACHINE_STATE * VCpu)
     UINT64                  FetchedField;
     UINT64                  FieldValue;
     UINT64                  DestAddress;
+    UINT64                  Displacement;
     VMEXIT_INFO             ExitInfo = {0};
 
     //
-    // Emulate Windows VBS behaviour which locks CR4.VMXE at 0.
-    // This means we can never execute VMLAUNCH and thus we can never have an active VMCS
+    // We mask CR4.VMXE at 0 so we are not in VMX operation.
     //
     if (g_CheckForFootprints)
     {
@@ -142,21 +140,28 @@ VmxEmulationVmread(VIRTUAL_MACHINE_STATE * VCpu)
     //
     if (ExitInfo.VmReadWrite.MemReg)
     {
-        SetRegister(VCpu, ExitInfo.VmReadWrite.Reg1, FieldValue);\
+        SetRegister(VCpu, ExitInfo.VmReadWrite.Reg1, FieldValue);
         LogInfo("Guest executed VMREAD: Field=0x%llx, Value=0x%llx\n", FetchedField, GetRegister(VCpu, ExitInfo.VmReadWrite.Reg1));
     }
     else
     {
-        if (!CalculateAddressFromExitInfo(VCpu, ExitInfo, VCpu->ExitQualification, &DestAddress))
+        VmxVmread64P(VMCS_EXIT_QUALIFICATION, &Displacement);
+        if (!CalculateAddressFromExitInfo(VCpu, ExitInfo, Displacement, &DestAddress))
         {
             EventInjectUndefinedOpcode(VCpu);
             return;
         }
-        *(UINT64 *)DestAddress = FieldValue;
+        
+        if (!CheckAccessValidityAndSafety(DestAddress, 8) || DestAddress < PAGE_SIZE)
+        {
+            EventInjectPageFaultWithoutErrorCode(DestAddress);
+            return;
+        }
+        MemoryMapperWriteMemorySafeOnTargetProcess(DestAddress, &FieldValue, 8);
         LogInfo("Guest executed VMREAD: Field=0x%llx, Value=0x%llx\n", FetchedField, DestAddress);
     }
 
-    VMSucceed();
+    VMFailWithoutErrorCode();
 }
 
 /**
@@ -169,8 +174,7 @@ VOID
 VmxEmulationVmresume(VIRTUAL_MACHINE_STATE * VCpu)
 {
     //
-    // Emulate Windows VBS behaviour which locks CR4.VMXE at 0.
-    // This means we can never execute VMLAUNCH and thus we can never have an active VMCS
+    // We mask CR4.VMXE at 0 so we are not in VMX operation.
     //
     if (g_CheckForFootprints)
     {
@@ -185,7 +189,7 @@ VmxEmulationVmresume(VIRTUAL_MACHINE_STATE * VCpu)
 
     LogInfo("Guest executed VMRESUME\n");
 
-    VMSucceed();
+    VMFailWithoutErrorCode();
 }
 
 /**
@@ -202,8 +206,7 @@ VmxEmulationVmwrite(VIRTUAL_MACHINE_STATE * VCpu)
     VMEXIT_INFO ExitInfo = {0};
 
     //
-    // Emulate Windows VBS behaviour which locks CR4.VMXE at 0.
-    // This means we can never execute VMLAUNCH and thus we can never have an active VMCS
+    // We mask CR4.VMXE at 0 so we are not in VMX operation.
     //
     if (g_CheckForFootprints)
     {
@@ -226,7 +229,7 @@ VmxEmulationVmwrite(VIRTUAL_MACHINE_STATE * VCpu)
     //
     LogInfo("Guest tried to execute VMWRITE on field: 0x%llx, with value: 0x%llx\n", FetchedField, FieldValue);
 
-    VMSucceed();
+    VMFailWithoutErrorCode();
 }
 
 /**
@@ -239,8 +242,7 @@ VOID
 VmxEmulationVmxoff(VIRTUAL_MACHINE_STATE * VCpu)
 {
     //
-    // Emulate Windows VBS behaviour which locks CR4.VMXE at 0.
-    // This means we can never execute VMLAUNCH and thus we can never have an active VMCS
+    // We mask CR4.VMXE at 0 so we are not in VMX operation.
     //
     if (g_CheckForFootprints)
     {
@@ -255,7 +257,7 @@ VmxEmulationVmxoff(VIRTUAL_MACHINE_STATE * VCpu)
 
     LogInfo("Guest executed VMXOFF\n");
 
-    VMSucceed();
+    VMFailWithoutErrorCode();
 }
 
 /**
@@ -268,8 +270,7 @@ VOID
 VmxEmulationVmlaunch(VIRTUAL_MACHINE_STATE * VCpu)
 {
     //
-    // Emulate Windows VBS behaviour which locks CR4.VMXE at 0.
-    // This means we can never execute VMLAUNCH and thus we can never have an active VMCS
+    // We mask CR4.VMXE at 0 so we are not in VMX operation.
     //
     if (g_CheckForFootprints)
     {
@@ -284,7 +285,7 @@ VmxEmulationVmlaunch(VIRTUAL_MACHINE_STATE * VCpu)
 
     LogInfo("Guest executed VMLAUNCH\n");
 
-    VMSucceed();
+    VMFailWithoutErrorCode();
 }
 
 /**
@@ -298,14 +299,14 @@ VmxEmulationVmxon(VIRTUAL_MACHINE_STATE * VCpu)
 {
     //
     // We do not care about execution mode, as we already know it is VMX-root.
-    // We also dont keep track of a guests IA32_FEATURE_CONTROL, so we assume it is set.
+    // We also dont keep track of a guests IA32_FEATURE_CONTROL, so we assume it is set outside of hyperevade.
     // Either way we do not support SMX, so the feature doesn't hold much value.
     //
 
     UINT64 FetchedAddress;
 
     //
-    // Emulate Windows VBS behaviour which locks CR4.VMXE at 0.
+    // We mask CR4.VMXE at 0 so we #UD.
     //
     if (g_CheckForFootprints)
     {
@@ -314,7 +315,7 @@ VmxEmulationVmxon(VIRTUAL_MACHINE_STATE * VCpu)
     }
 
     ///
-    /// Check whether safety features allow execution
+    /// Check whether guest machine state allows execution
     ///
     if (CheckRegistersForException(VCpu))
     {
@@ -337,9 +338,9 @@ VmxEmulationVmxon(VIRTUAL_MACHINE_STATE * VCpu)
     LogInfo("Guest executed VMXON\n");
 
     //
-    //  Return VMSucceed to indicate that we did enter VMX mode
+    //  VMFail to indicate that we did not enter VMX op.
     //
-    VMSucceed();
+    VMFailWithoutErrorCode();
 }
 
 /**
@@ -355,10 +356,11 @@ VmxEmulationInvept(VIRTUAL_MACHINE_STATE * VCpu)
     VMEXIT_INFO          ExitInfo = {0};
     UINT64               InveptType;
     UINT64               Address;
+    UINT64               Displacement;
     INVEPT_DESCRIPTOR    Descriptor = {0};
 
     //
-    // SDM 33.3, insert #UD if not in VMX.
+    // We mask CR4.VMXE at 0 so we are not in VMX operation.
     //
     if (g_CheckForFootprints)
     {
@@ -379,8 +381,9 @@ VmxEmulationInvept(VIRTUAL_MACHINE_STATE * VCpu)
     //
     VmxVmread32P(VMCS_VMEXIT_INSTRUCTION_INFO, (UINT32 *)&ExitInfo);
     InveptType = GetRegister(VCpu, ExitInfo.Reg2);
+    VmxVmread64P(VMCS_EXIT_QUALIFICATION, &Displacement);
 
-    if (!CalculateAddressFromExitInfo(VCpu, ExitInfo, VCpu->ExitQualification, &Address))
+    if (!CalculateAddressFromExitInfo(VCpu, ExitInfo, Displacement, &Address))
     {
         EventInjectUndefinedOpcode(VCpu);
         return;
@@ -416,7 +419,7 @@ VmxEmulationInvvpid(VIRTUAL_MACHINE_STATE * VCpu)
     INVVPID_DESCRIPTOR   Descriptor = {0};
 
     //
-    // SDM 33.3, insert #UD if not in VMX.
+    // We mask CR4.VMXE at 0 so we are not in VMX operation.
     //
     if (g_CheckForFootprints)
     {
@@ -498,6 +501,7 @@ VmxEmulationGetsec(VIRTUAL_MACHINE_STATE * VCpu)
 {
     long capabilities;
     long GetsecLeaf;
+
     //
     // CR4.SMXE is never set in transparent mode.
     //
@@ -585,7 +589,7 @@ VOID
 VMSucceed()
 {
     UINT64 Rflags = HvGetRflags();
-    Rflags &= ~(X86_FLAGS_CF | X86_FLAGS_PF | X86_FLAGS_AF | X86_FLAGS_ZF | X86_FLAGS_SF | X86_FLAGS_OF);
+    //Rflags &= ~(X86_FLAGS_CF | X86_FLAGS_PF | X86_FLAGS_AF | X86_FLAGS_ZF | X86_FLAGS_SF | X86_FLAGS_OF);
     HvSetRflags(Rflags);
 }
 
@@ -597,9 +601,9 @@ VMSucceed()
 VOID
 VMFailWithoutErrorCode()
 {
-    UINT64 Rflags = HvGetRflags();
-    Rflags &= ~(X86_FLAGS_PF | X86_FLAGS_AF | X86_FLAGS_ZF | X86_FLAGS_SF | X86_FLAGS_OF);
-    HvSetRflags(Rflags | X86_FLAGS_CF);
+    UINT64 Rflags = 0;
+    VmxVmread64P(VMCS_GUEST_RFLAGS, &Rflags);
+    VmxVmwrite64(VMCS_GUEST_RFLAGS, Rflags | X86_FLAGS_CF);
 }
 
 /**
@@ -611,9 +615,9 @@ VMFailWithoutErrorCode()
 VOID
 VMFailWithErrorCode(UINT32 ErrorCode)
 {
-    UINT64 Rflags = HvGetRflags();
-    Rflags &= ~(X86_FLAGS_CF | X86_FLAGS_PF | X86_FLAGS_AF | X86_FLAGS_SF | X86_FLAGS_OF);
-    HvSetRflags(Rflags | X86_FLAGS_ZF);
+    UINT64 Rflags = 0;
+    VmxVmread64P(VMCS_GUEST_RFLAGS, &Rflags);
+    VmxVmwrite64(VMCS_GUEST_RFLAGS, Rflags | X86_FLAGS_CF);
     VmxVmwrite32(VMCS_VM_INSTRUCTION_ERROR, ErrorCode);
 }
 
@@ -864,10 +868,12 @@ BOOLEAN
 VmexitFetchAndCheckVmcsPointerAlignment(VIRTUAL_MACHINE_STATE * VCpu, UINT64 * FetchedAddress)
 {
     VMEXIT_INFO ExitInfo = {0};
+    UINT64      Displacement;
     UINT64      Address;
 
     VmxVmread32P(VMCS_VMEXIT_INSTRUCTION_INFO, (UINT32 *)&ExitInfo);
-    if (!CalculateAddressFromExitInfo(VCpu, ExitInfo, VCpu->ExitQualification, &Address))
+    VmxVmread64P(VMCS_EXIT_QUALIFICATION, &Displacement);
+    if (!CalculateAddressFromExitInfo(VCpu, ExitInfo, Displacement, &Address))
     {
         EventInjectUndefinedOpcode(VCpu);
         return FALSE;
@@ -878,16 +884,19 @@ VmexitFetchAndCheckVmcsPointerAlignment(VIRTUAL_MACHINE_STATE * VCpu, UINT64 * F
     if (CheckAccessValidityAndSafety(*FetchedAddress, 8) ||
         *FetchedAddress % 4096 != 0)
     {
+        LogInfo("Pointer misalignment detected\n");
         VMFailWithErrorCode(VMX_ERROR_VMCLEAR_INVALID_PHYSICAL_ADDRESS);
         return FALSE;
     }
     else if (*FetchedAddress == VCpu->VmxonRegionPhysicalAddress)
     {
+        LogInfo("Pointer is Vmxon region\n");
         VMFailWithErrorCode(VMX_ERROR_VMCLEAR_INVALID_VMXON_POINTER);
         return FALSE;
     }
     else if (*FetchedAddress == VCpu->VmcsRegionPhysicalAddress)
     {
+        LogInfo("Pointer is Vmcs region\n");
         VMFailWithErrorCode(VMX_ERROR_VMCLEAR_INVALID_PHYSICAL_ADDRESS);
         return FALSE;
     }

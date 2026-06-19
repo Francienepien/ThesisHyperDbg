@@ -100,12 +100,6 @@ MsrHandleRdmsrVmexit(VIRTUAL_MACHINE_STATE * VCpu)
     // Checking whether it is a synthetic MSR for Hyper-V.
     if (MsrHandleIsHypervSyntheticMsr(TargetMsr))
     {
-        if (TargetMsr != 0x400000f0)
-        {
-            LogInfo("RDMSR for a Hyper-V synthetic MSR. MSR: %x, from: %llx",
-                    TargetMsr,
-                    VCpu->LastVmexitRip);
-        }
         //Msr.Flags = CpuReadMsr(TargetMsr);
 
         //GuestRegs->rax = Msr.Fields.Low;
@@ -267,12 +261,6 @@ MsrHandleWrmsrVmexit(VIRTUAL_MACHINE_STATE * VCpu)
     // Checking whether it is a synthetic MSR for Hyper-V.
     if (MsrHandleIsHypervSyntheticMsr(TargetMsr))
     {
-        if (TargetMsr != 0x400000b0 && TargetMsr != 0x400000b1)
-        {
-            LogInfo("WRMSR for a Hyper-V synthetic MSR. MSR: %x, from: %llx",
-                    TargetMsr,
-                    VCpu->LastVmexitRip);
-        }
         //CpuWriteMsr(TargetMsr, Msr.Flags);
         //return;
     }
@@ -345,7 +333,6 @@ MsrHandleWrmsrVmexit(VIRTUAL_MACHINE_STATE * VCpu)
             //
             if (g_CheckForFootprints && TransparentCheckAndModifyMsrWrite(VCpu->Regs, TargetMsr))
             {
-                LogInfo("The current guest rip is: %p and the rsp is: %p\n", (PVOID)VCpu->LastVmexitRip, (PVOID)VCpu->Regs->rsp);
                 return;
             }
 

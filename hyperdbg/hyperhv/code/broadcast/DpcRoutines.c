@@ -1497,6 +1497,49 @@ DpcRoutineInvalidateEptOnAllCores(KDPC * Dpc, PVOID DeferredContext, PVOID Syste
 }
 
 /**
+ * @brief Disable vm-exit on NMIs on all cores
+ *
+ * @param Dpc
+ * @param DeferredContext
+ * @param SystemArgument1
+ * @param SystemArgument2
+ * @return VOID
+ */
+VOID
+DpcRoutineMaskCr4OnAllCores(KDPC * Dpc, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2)
+{
+    UNREFERENCED_PARAMETER(Dpc);
+    UNREFERENCED_PARAMETER(DeferredContext);
+
+    //
+    // Mask CR4
+    //
+    AsmVmxVmcall(VMCALL_MASK_CR4_VMXE, NULL64_ZERO, NULL64_ZERO, NULL64_ZERO);
+
+    // ------------------------------------------------------------------------------
+    // Synchronize the end of this routine with the caller
+    //
+    PlatformBroadcastSynchronizeEndOfRoutine(SystemArgument1, SystemArgument2);
+}
+
+VOID
+DpcRoutineUnmaskCr4OnAllCores(KDPC * Dpc, PVOID DeferredContext, PVOID SystemArgument1, PVOID SystemArgument2)
+{
+    UNREFERENCED_PARAMETER(Dpc);
+    UNREFERENCED_PARAMETER(DeferredContext);
+
+    //
+    // Unmask CR4
+    //
+    AsmVmxVmcall(VMCALL_UNMASK_CR4_VMXE, NULL64_ZERO, NULL64_ZERO, NULL64_ZERO);
+
+    // ------------------------------------------------------------------------------
+    // Synchronize the end of this routine with the caller
+    //
+    PlatformBroadcastSynchronizeEndOfRoutine(SystemArgument1, SystemArgument2);
+}
+
+/**
  * @brief The broadcast function which initialize the guest
  *
  * @param Dpc

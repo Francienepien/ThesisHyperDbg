@@ -34,7 +34,7 @@ TransparentCheckAndModifyCpuid(PGUEST_REGS Regs, INT32 CpuInfo[])
         // Unset the Hypervisor Present-bit in RCX, which Intel and AMD have both
         // reserved for this indication
         //
-        CpuInfo[2] &= ~HYPERV_HYPERVISOR_PRESENT_BIT;
+        CpuInfo[2] &= ~(HYPERV_HYPERVISOR_PRESENT_BIT|CPUID_VMX_SUPPORT_BIT|CPUID_SMX_SUPPORT_BIT);
     }
     else if (Regs->rax == CPUID_HV_VENDOR_AND_MAX_FUNCTIONS || Regs->rax == HYPERV_CPUID_INTERFACE)
     {
@@ -48,7 +48,7 @@ TransparentCheckAndModifyCpuid(PGUEST_REGS Regs, INT32 CpuInfo[])
         //
         // Report Arch LBR support in CPUID.07H.00H ECX[bit 19] when the Transparent mode is enabled
         //
-        CpuInfo[3] |= (1 << 19);
+        CpuInfo[3] |= CPUID_ARCH_LBR_PRESENT_BIT;
     }
     else if (Regs->rax == 0x1c && g_IsArchLbr)
     {
@@ -100,9 +100,8 @@ TransparentCheckAndModifyMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
     //     return FALSE;
     // }
 
-    //
-    // Define locally so we dont have to fetch from memory on every read.
-    //
+    UINT64 MsrValue = 0;
+    
     if (TargetMsr != 0x400000b1 && TargetMsr != 0x400000b0)
     {
         LogInfo("TransparentCheckAndModifyMsrRead: MSR: %x", TargetMsr);
@@ -116,6 +115,19 @@ TransparentCheckAndModifyMsrRead(PGUEST_REGS Regs, UINT32 TargetMsr)
         // Spoof SMI value to hide hypervisor
         //
         SaveMsrValueToRegisters(Regs, g_TransparentSmiCount);
+
+        return TRUE;
+    }
+    case IA32_FEATURE_CONTROL:
+    {
+        //
+        // Spoof VMX support being disabled in IA32_FEATURE_CONTROL value to hide hypervisor
+        //
+        MsrValue = CpuReadMsr(IA32_FEATURE_CONTROL);
+        MsrValue |= IA32_FEATURE_CONTROL_LOCK_BIT_FLAG;
+        MsrValue &= ~(IA32_FEATURE_CONTROL_ENABLE_VMX_INSIDE_SMX_FLAG  | IA32_FEATURE_CONTROL_ENABLE_VMX_OUTSIDE_SMX_FLAG);
+
+        SaveMsrValueToRegisters(Regs, MsrValue);
 
         return TRUE;
     }
@@ -168,6 +180,19 @@ TransparentCheckAndModifyMsrWrite(PGUEST_REGS Regs, UINT32 TargetMsr)
     //     //
     //     return FALSE;
     // }
+
+    switch (TargetMsr)
+    {
+    case IA32_FEATURE_CONTROL:
+    {
+        //
+        // Lock bit is set in transparent mdoe, so we #GP
+        //
+        g_Callbacks.EventInjectGeneralProtection();
+
+        return TRUE;
+    }
+    }
 
     if (TransparentCheckAndModifyLbrMsrWrite(Regs, TargetMsr))
     {
